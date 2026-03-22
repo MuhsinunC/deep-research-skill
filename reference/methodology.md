@@ -181,6 +181,50 @@ As results arrive:
 - Execute code for computational analysis (when needed)
 - Use Task tool to spawn parallel retrieval agents (3-5 agents)
 
+### Operational Reliability Protocol
+
+**These rules prevent common failure modes during retrieval without affecting research accuracy.**
+
+#### 1. Write-After-Search Protocol
+
+After every WebSearch or WebFetch call, immediately write findings to disk before performing the next search. The pattern is strictly:
+
+```
+Search → Write findings to file → Search → Write findings to file
+```
+
+**NEVER perform two consecutive searches without writing results in between.** Context compaction can destroy unsaved search results. Writing after every search ensures no findings are lost, even if the session is interrupted or context is compacted.
+
+For sub-agents spawned via the Task tool, include this instruction in their prompt:
+> "After every search or fetch, immediately write your findings to your output file. Never accumulate multiple search results in memory without saving. The pattern is: Search → Edit file → Search → Edit file. No exceptions."
+
+#### 2. Stuck Agent Detection and Recovery
+
+When sub-agents are spawned for parallel retrieval, monitor them at escalating intervals:
+- First check: 30 seconds after launch
+- Second check: 2 minutes after launch
+- Third check: 5 minutes after launch
+- Subsequent checks: every 5 minutes
+
+**Detection method:** Check each agent's output file line count with `wc -l`. If an agent's line count has NOT increased between two consecutive checks, it is stuck.
+
+**Recovery action:** Stop the stuck agent immediately with TaskStop. Relaunch a new agent with:
+- The stuck agent's partial output pre-loaded in the prompt
+- A note about which sections remain incomplete
+- Stricter time expectations
+
+This prevents the common failure mode where an agent hangs on a slow WebFetch and blocks the entire retrieval phase.
+
+#### 3. Blocked Site Handling (403 Errors)
+
+When a WebFetch returns a 403, paywall, or access-denied error:
+1. **Write what you already have** to your output file immediately
+2. Try ONE alternative URL for the same information
+3. **Write again** after the alternative attempt
+4. Move on — do NOT try multiple alternative URLs in a row without writing
+
+This prevents the failure mode where an agent enters a retry loop on blocked sites, wasting context and time without producing output.
+
 **Output:** Organized information repository with source tracking, credibility scores, and coverage map
 
 ---
