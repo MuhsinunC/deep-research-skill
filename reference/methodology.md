@@ -4,6 +4,26 @@
 
 This document contains the detailed methodology for conducting deep research. The 8 phases represent a comprehensive approach to gathering, verifying, and synthesizing information from multiple sources.
 
+## Inline Verification Principle (Inspired by MiroThinker)
+
+**Verification is NOT just a post-hoc phase.** The highest-accuracy research framework (MiroThinker, 88.2% BrowseComp) builds verification INTO every reasoning step, not just at the end. Apply this principle throughout:
+
+- **During RETRIEVE:** After each search result arrives, immediately assess: does this source look credible? Does the claim match what other sources say? Flag contradictions in real-time, don't wait for TRIANGULATE.
+- **During SYNTHESIZE:** As you build arguments, check: is this conclusion supported by the evidence I screened, or am I extrapolating beyond what the sources actually say?
+- **During REFINE:** When fixing critique findings, verify the fix doesn't introduce new inconsistencies (the "fake fix" problem — MiroThinker's ChainChecker catches these).
+
+This does NOT replace the dedicated TRIANGULATE and VERIFY phases. It supplements them with continuous vigilance.
+
+## Replanning on Contradiction
+
+When evidence at ANY phase contradicts the current research direction or a key assumption from Phase 1 (SCOPE):
+1. **Stop and acknowledge** the contradiction explicitly
+2. **Assess severity:** Does this invalidate a minor detail, or does it undermine the research question's framing?
+3. **If minor:** Note the contradiction, continue with adjusted claim
+4. **If major:** Return to OUTLINE REFINEMENT (Phase 4.5) to restructure. Do NOT continue building on a foundation that the evidence has undermined.
+
+This selective rollback approach prevents the sunk-cost fallacy of continuing research in a direction the evidence no longer supports.
+
 ---
 
 ## Progress Reporting
