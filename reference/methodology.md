@@ -330,14 +330,33 @@ When sources disagree on a claim, do NOT simply flag "sources disagree" and move
 6. **If genuinely unresolvable** — present both positions with equal weight and explicitly label as "contested":
    > "This remains contested: Source A claims X [1] while Source B claims Y [2]. No tiebreaking evidence was found."
 
+### Anchoring Bias Countermeasures
+
+Claude exhibits anchoring bias — once a conclusion forms early in research (based on the first few search results), it resists contradictory evidence that arrives later. This is a documented failure mode that corrupts research objectivity. Countermeasures:
+
+**1. Devil's Advocate Searches (mandatory):**
+After initial cross-referencing, dedicate 2-3 searches SPECIFICALLY to finding evidence that CONTRADICTS the emerging thesis. Search for:
+- "[topic] criticism problems limitations"
+- "[topic] wrong overhyped debunked"
+- "[main conclusion] counterargument alternative"
+
+If no contradictory evidence is found, that's a data point (strong consensus). If contradictory evidence IS found, it must be integrated via the Contradiction Resolution Protocol above.
+
+**2. Steelman the Opposition:**
+When presenting contradictions in the report, always present the STRONGEST version of the opposing view — not a strawman. If Source B disagrees with the emerging thesis, present Source B's argument as compellingly as possible before explaining why the evidence favors a different conclusion (or labeling it as contested).
+
+**3. Recency Awareness:**
+Early search results are not inherently more accurate. Explicitly check whether later-discovered sources contain more recent data that supersedes earlier findings. Do not let the first source set an anchor that later sources merely confirm.
+
 **Quality Standards:**
 - Core claims must have 3+ independent sources
 - Flag any single-source information
 - Note recency of information
 - Identify potential biases
 - Every contradiction must be resolved or labeled "contested" — no silent disagreements
+- Devil's advocate searches must be performed — no exceptions
 
-**Output:** Verified fact base with confidence levels and resolved contradictions. Save checkpoint.
+**Output:** Verified fact base with confidence levels, resolved contradictions, and devil's advocate search results. Save checkpoint.
 
 ---
 
@@ -441,17 +460,35 @@ When sources disagree on a claim, do NOT simply flag "sources disagree" and move
 
 **Progress:** `[Phase SYNTHESIZE] Connecting insights across X verified claims...`
 
+### Atomic Claim Screening (Error Amplification Prevention)
+
+Before synthesizing, screen each major claim for independent verifiability. This prevents the "Spark to Fire" failure mode (DeepMind, 2026) where errors in one part of the evidence base amplify through synthesis into systematically wrong conclusions.
+
+**For each major claim entering synthesis:**
+1. Does this claim have support from 2+ INDEPENDENT sources (not sources citing each other)?
+2. Was this claim verified during TRIANGULATE, or is it an unverified carryover?
+3. Is this claim from a high-credibility source (>60/100) or a low-credibility one?
+
+**Screening decision:**
+- 2+ independent sources + verified → **ACCEPT into synthesis**
+- 1 source only + verified → **ACCEPT but label as "single-source" in the report**
+- Unverified + any source count → **DO NOT synthesize** — return to TRIANGULATE for this specific claim, or exclude from synthesis and note in Limitations
+- Low-credibility source only → **DO NOT synthesize** — seek a higher-credibility source or exclude
+
+This prevents the hub-corruption failure: if one bad claim is accepted into synthesis, it can distort the entire report's conclusions. Screening catches it before amplification.
+
 **Activities:**
-1. Identify patterns across sources
-2. Map relationships between concepts
-3. Generate insights beyond source material
-4. Create conceptual frameworks
-5. Build argument structures
-6. Develop evidence hierarchies
+1. Screen claims via atomic claim protocol above
+2. Identify patterns across ACCEPTED claims only
+3. Map relationships between concepts
+4. Generate insights beyond source material
+5. Create conceptual frameworks
+6. Build argument structures
+7. Develop evidence hierarchies
 
-**Extended Thinking Task:** Think through non-obvious connections and second-order implications. What patterns emerge when you look at the evidence as a whole that aren't visible in any single source? What would a domain expert notice that a generalist might miss?
+**Extended Thinking Task:** Think through non-obvious connections and second-order implications. What patterns emerge when you look at the evidence as a whole that aren't visible in any single source? What would a domain expert notice that a generalist might miss? Are any of your emerging conclusions dependent on a single source — if so, how confident should you be?
 
-**Output:** Synthesized understanding with insight generation. Save checkpoint.
+**Output:** Synthesized understanding with insight generation, with claim acceptance/rejection log. Save checkpoint.
 
 ---
 
@@ -518,48 +555,80 @@ This is more powerful than the original "return to Phase 3" approach because tar
 
 ---
 
-## Phase 7.5: SELF-EVALUATE - Research Quality Scoring (Deep/UltraDeep only)
+## Phase 7.5: VERIFY - Tool-Grounded Claim Verification (Deep/UltraDeep only)
 
-**Objective:** Score the research output against a structured rubric before packaging. Catch quality issues that the critique phase may have missed.
+**Objective:** Verify the research output using external tool checks, not internal self-reflection. Academic research (Huang et al., CRITIC framework) shows pure self-reflection can DECREASE accuracy — models change correct answers to wrong ones more often than they fix errors. Tool-grounded verification is the only reliable approach.
 
-**Progress:** `[Phase SELF-EVALUATE] Scoring research quality on 5 dimensions...`
+**Progress:** `[Phase VERIFY] Decomposing report into claims and verifying against sources...`
 
 **When to Execute:** Deep and UltraDeep modes only (Quick and Standard skip this).
 
-**Rubric:** Score the draft research on each dimension from 0.0 to 1.0:
+**WARNING — DO NOT self-score.** Do NOT re-read the report and assign subjective quality scores. This is the "self-correction blind spot" — models are poor at catching their own reasoning mistakes (CorrectBench, 2025). Instead, use the Decompose-Retrieve-Verify pattern below, which uses external tool calls to ground every check.
 
-| Dimension | Question | Threshold |
-|-----------|----------|-----------|
-| **Factual Accuracy** | Is every claim supported by cited evidence? Are there any unsourced assertions? | ≥ 0.7 |
-| **Citation Accuracy** | Do the citations actually support the specific claims they're attached to? Would reading the cited source confirm the claim? | ≥ 0.7 |
-| **Completeness** | Are all aspects of the research question addressed? Are there obvious angles that were missed? | ≥ 0.6 |
-| **Source Quality** | Is the source mix diverse (academic, industry, primary) and authoritative? Are there too many low-quality sources? | ≥ 0.6 |
-| **Coherence** | Does the argument flow logically? Are there contradictions between sections? Does the conclusion follow from the evidence? | ≥ 0.7 |
+### Step 1: Decompose Report into Atomic Claims
 
-**Scoring process:**
-1. Re-read the draft report with the rubric in mind
-2. For each dimension, assign a score with a 1-sentence justification
-3. Output the scorecard as a table
+Extract the 10-20 most important factual claims from the draft report. For each claim, record:
+- The exact claim text
+- The citation number(s) attached to it
+- The source URL(s) from the bibliography
 
-**Loop-back triggers:**
-- Factual Accuracy < 0.7 → return to Phase 4 (TRIANGULATE) for additional verification
-- Citation Accuracy < 0.7 → run Citation Verification (below) then return to Phase 7 (REFINE)
-- Completeness < 0.6 → return to Phase 3 (RETRIEVE) for targeted gap-filling
-- Source Quality < 0.6 → return to Phase 3 (RETRIEVE) with source preference heuristics enforced more strictly
-- Coherence < 0.7 → return to Phase 7 (REFINE) for structural editing
+Focus on claims that are:
+- Central to the report's conclusions
+- Quantitative (numbers, dates, percentages)
+- Comparative ("X is better than Y")
+- Causal ("X causes Y")
 
-**Maximum 2 loop-back cycles** to prevent infinite loops. If scores remain below threshold after 2 cycles, proceed to PACKAGE and note the low-scoring dimensions in the Limitations section.
+Skip claims that are:
+- Common knowledge
+- The author's own synthesis/opinion (clearly labeled as such)
+- Trivially verifiable definitions
 
-### Citation Verification Agent
+### Step 2: Spawn Citation Verification Sub-Agents
 
-After self-evaluation, if the research is Deep or UltraDeep mode, spawn a dedicated sub-agent for citation verification:
+Spawn 2-3 sub-agents to verify claims in parallel. Each sub-agent gets a batch of claims and their cited source URLs.
 
-**Prompt for citation verification sub-agent:**
-> "You are a citation verification agent. Read the research report at [REPORT_PATH]. For each numbered citation [N], verify that the cited source actually supports the specific claim it's attached to. Check: (1) Does the source URL resolve? (2) Does the source content actually contain information supporting the claim? (3) Is the claim a fair representation of what the source says, or is it distorted? Write your verification results to [OUTPUT_FILE_PATH]. After every verification check, immediately write your results to [OUTPUT_FILE_PATH]. Never accumulate multiple verification results in memory without saving. Format: [N] VERIFIED/QUESTIONABLE/UNVERIFIABLE — reason."
+**Prompt for each verification sub-agent:**
+> "You are a claim verification agent. For each claim below, use WebFetch to retrieve the cited source URL and verify whether the source actually supports the claim. Do NOT rely on your training data — you MUST fetch and read the source.
+>
+> For each claim, report:
+> - VERIFIED: Source content confirms the claim
+> - QUESTIONABLE: Source exists but doesn't clearly support the claim, or the claim overstates/distorts what the source says
+> - UNVERIFIABLE: Source URL returns 403/404/error, or content doesn't address the claim at all
+> - CONTRADICTED: Source actually contradicts the claim
+>
+> Write results to [OUTPUT_FILE_PATH]. After every verification, immediately write to the file. Format:
+> Claim: [exact claim text]
+> Citation: [N]
+> Source: [URL]
+> Status: VERIFIED/QUESTIONABLE/UNVERIFIABLE/CONTRADICTED
+> Evidence: [quote or summary from the actual source content]
+> ---"
 
-This is deeper than the existing verify_citations.py script (which checks URL/DOI validity). The citation agent does semantic matching — does the source actually say what the report claims it says?
+Sub-agents follow the same reliability protocols: write-after-search, designated output file paths.
 
-**Output:** Quality scorecard with dimension scores and justifications. Save checkpoint.
+### Step 3: Process Verification Results
+
+Wait for all verification sub-agents to complete (same stuck-agent monitoring applies).
+
+Read all verification results. Categorize:
+- **All VERIFIED:** Proceed to Phase 8 (PACKAGE)
+- **Any CONTRADICTED:** This is critical — the report contains a claim that is actively wrong. Return to Phase 7 (REFINE) to fix the specific claim. Remove or correct it with the contradicting evidence.
+- **3+ QUESTIONABLE:** The report may be overstating its evidence base. Return to Phase 7 (REFINE) to soften overstated claims or find stronger supporting sources.
+- **3+ UNVERIFIABLE:** Too many dead/blocked sources. Return to Phase 3 (RETRIEVE) to find replacement sources for unverifiable citations.
+
+### Step 4: Completeness and Source Quality Check
+
+After claim verification, do two quick tool-grounded checks:
+
+**Completeness check:** Re-read the original research question from Phase 1 SCOPE. List each component of the question. For each component, verify that the report addresses it with at least one finding. If a component is unaddressed, note it as a gap.
+
+**Source quality check:** Count sources by type (academic, industry, journalism, blog, SEO). If >30% of sources are blogs/SEO content, note this as a limitation. If <3 source types are represented, note as limitation.
+
+These are structural checks (counting, matching) not subjective quality scoring.
+
+**Maximum 2 loop-back cycles** to prevent infinite loops. If issues persist after 2 cycles, proceed to PACKAGE and document all QUESTIONABLE/UNVERIFIABLE/CONTRADICTED claims in the Limitations section.
+
+**Output:** Verification results file with per-claim status and evidence. Save checkpoint.
 
 ---
 

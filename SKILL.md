@@ -44,7 +44,7 @@ Mode Selection
 | 5 | SYNTHESIZE | - | Y | Y | Y |
 | 6 | CRITIQUE | - | - | Y | Y |
 | 7 | REFINE | - | - | Y | Y |
-| 7.5 | SELF-EVALUATE | - | - | Y | Y |
+| 7.5 | VERIFY | - | - | Y | Y |
 | 8 | PACKAGE | Y | Y | Y | Y |
 
 **Cross-cutting requirements (all phases):**
