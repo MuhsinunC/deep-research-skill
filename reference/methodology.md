@@ -229,6 +229,12 @@ When a WebFetch returns a 403, paywall, or access-denied error:
 
 This prevents the failure mode where an agent enters a retry loop on blocked sites, wasting context and time without producing output.
 
+#### Phase 3 Completion Gate
+
+**Do NOT proceed to Phase 4 until ALL sub-agents have completed or been recovered via the stuck-agent protocol.** The stuck-agent detection ensures no agent blocks indefinitely — use it. Triangulation requires ALL retrieved evidence, not just the first results that arrive.
+
+The FFS (First Finish Search) pattern above applies only to the initial parallel search burst (Step 1). It does NOT grant permission to skip ahead while sub-agents (Step 2) are still running. Sub-agent results are deep-dive evidence that triangulation depends on for cross-referencing.
+
 **Output:** Incrementally-persisted research files with source tracking, credibility scores, and coverage map
 
 ---
