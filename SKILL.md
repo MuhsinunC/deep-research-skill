@@ -48,7 +48,7 @@ Mode Selection
 | 8 | PACKAGE | Y | Y | Y | Y |
 
 **Cross-cutting requirements (all phases):**
-- **Progress reporting:** Output a `[Phase N/M: NAME]` status line at the start of each phase
+- **Progress reporting:** Output a `[Phase NAME]` status line at the start of each phase (use phase name, not numbers)
 - **Checkpoint/resume:** Save `_checkpoint.json` at the end of each phase
 - **Source preferences:** Prioritize primary/authoritative sources, deprioritize SEO content farms
 

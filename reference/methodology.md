@@ -345,7 +345,7 @@ When sources disagree on a claim, do NOT simply flag "sources disagree" and move
 
 **Objective:** Adapt research direction based on evidence discovered
 
-**Progress:** `[Phase 4.5: OUTLINE REFINEMENT] Comparing initial scope against discovered evidence...`
+**Progress:** `[Phase OUTLINE REFINEMENT] Comparing initial scope against discovered evidence...`
 
 **Problem Solved:** Prevents "locked-in" research when evidence points to different conclusions or uncovers more important angles than initially planned.
 
@@ -502,7 +502,7 @@ This is more powerful than the original "return to Phase 3" approach because tar
 
 **Objective:** Address gaps and strengthen weak areas
 
-**Progress:** `[Phase 7: REFINE] Addressing critique findings and strengthening weak areas...`
+**Progress:** `[Phase REFINE] Addressing critique findings and strengthening weak areas...`
 
 **Extended Thinking Task:** Review the critique report. Which issues are most damaging to the research's credibility? Prioritize those fixes. Think through whether the proposed fixes might introduce new inconsistencies.
 
