@@ -23,9 +23,9 @@ Request Analysis
 
 Mode Selection
 +-- Initial exploration --> quick (3 phases, 2-5 min)
-+-- Standard research --> standard (6 phases, 5-10 min) [DEFAULT]
-+-- Critical decision --> deep (8 phases, 10-20 min)
-+-- Comprehensive review --> ultradeep (8+ phases, 20-45 min)
++-- Standard research --> standard (7 phases, 5-10 min) [DEFAULT]
++-- Critical decision --> deep (10 phases, 10-20 min)
++-- Comprehensive review --> ultradeep (10 phases, 20-45 min)
 ```
 
 **Default assumptions:** Technical query = technical audience. Comparison = balanced perspective. Trend = recent 1-2 years.

@@ -85,7 +85,7 @@ Update sources.json after each section. This survives context compaction and ena
 
 8. **Methodology Appendix**
    - Research process, verification approach
-   - If Phase 7.5 (SELF-EVALUATE) was executed, include the quality scorecard with dimension scores
+   - If Phase 7.5 (VERIFY) was executed, include the verification results summary (per-claim VERIFIED/QUESTIONABLE/UNVERIFIABLE/CONTRADICTED status)
    - Tool: Edit(append)
 
 ---

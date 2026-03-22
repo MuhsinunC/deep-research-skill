@@ -57,7 +57,7 @@ This applies to every phase. It is not optional.
 }
 ```
 
-Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`, `"SELF-EVALUATE"`) for both `phase_completed` and `next_phase`. This avoids ambiguity with half-phases (4.5, 7.5).
+Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`, `"VERIFY"`) for both `phase_completed` and `next_phase`. This avoids ambiguity with half-phases (4.5, 7.5).
 
 **On invocation:** Before starting Phase 1, check the output directory for an existing `_checkpoint.json`. If found, offer to resume from the last completed phase. This prevents total loss of work when context compaction or session interruption occurs mid-research.
 
@@ -227,6 +227,8 @@ As results arrive:
 5. Monitor for quality threshold (see FFS pattern below)
 
 ### First Finish Search (FFS) Pattern
+
+**Note:** This pattern applies to Step 1 parallel searches only. Sub-agents (Step 2) must ALL complete before Phase 4 — see Phase 3 Completion Gate below.
 
 **Adaptive completion based on quality threshold:**
 
@@ -665,7 +667,7 @@ These are structural checks (counting, matching) not subjective quality scoring.
 4. Create visualizations (tables, diagrams)
 5. Compile full bibliography
 6. Add methodology appendix
-7. Include self-evaluation scorecard (if Phase 7.5 was executed) in the methodology appendix
+7. Include verification results summary (per-claim status from Phase 7.5 VERIFY) in the methodology appendix
 
 **Output:** Complete research report ready for use. Save final checkpoint.
 
