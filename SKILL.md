@@ -44,7 +44,13 @@ Mode Selection
 | 5 | SYNTHESIZE | - | Y | Y | Y |
 | 6 | CRITIQUE | - | - | Y | Y |
 | 7 | REFINE | - | - | Y | Y |
+| 7.5 | SELF-EVALUATE | - | - | Y | Y |
 | 8 | PACKAGE | Y | Y | Y | Y |
+
+**Cross-cutting requirements (all phases):**
+- **Progress reporting:** Output a `[Phase N/M: NAME]` status line at the start of each phase
+- **Checkpoint/resume:** Save `_checkpoint.json` at the end of each phase
+- **Source preferences:** Prioritize primary/authoritative sources, deprioritize SEO content farms
 
 ---
 

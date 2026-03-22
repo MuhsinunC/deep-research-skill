@@ -6,9 +6,44 @@ This document contains the detailed methodology for conducting deep research. Th
 
 ---
 
+## Progress Reporting
+
+**At the start of each phase, output a brief progress line to the user.** Long research sessions (5-45 minutes) with no visible progress feel broken. Format:
+
+```
+[Phase N/M: NAME] Brief description of what's happening...
+[Phase N/M: NAME] Key metric update (e.g., "15/20 sources gathered, avg credibility 72/100")...
+```
+
+This applies to every phase. It is not optional.
+
+---
+
+## Checkpoint/Resume Protocol
+
+**At the end of each phase, save a checkpoint file** to the research output directory as `_checkpoint.json`:
+
+```json
+{
+  "phase_completed": 4,
+  "mode": "standard",
+  "topic": "research topic here",
+  "sources_gathered": 18,
+  "output_dir": "/path/to/output/",
+  "next_phase": "OUTLINE_REFINEMENT",
+  "timestamp": "2026-03-22T14:30:00Z"
+}
+```
+
+**On invocation:** Before starting Phase 1, check the output directory for an existing `_checkpoint.json`. If found, offer to resume from the last completed phase. This prevents total loss of work when context compaction or session interruption occurs mid-research.
+
+---
+
 ## Phase 1: SCOPE - Research Framing
 
 **Objective:** Define research boundaries and success criteria
+
+**Progress:** `[Phase 1/N: SCOPE] Framing research question and defining boundaries...`
 
 **Activities:**
 1. Decompose the question into core components
@@ -17,15 +52,17 @@ This document contains the detailed methodology for conducting deep research. Th
 4. Establish success criteria
 5. List key assumptions to validate
 
-**Ultrathink Application:** Use extended reasoning to explore multiple framings of the question before committing to scope.
+**Extended Thinking Task:** Before committing to scope, think through 3 alternative framings of the research question. Consider: Is the question too broad? Too narrow? Is there a more precise version that would yield more actionable results? Choose the framing that best serves the user's likely intent.
 
-**Output:** Structured scope document with research boundaries
+**Output:** Structured scope document with research boundaries. Save checkpoint.
 
 ---
 
 ## Phase 2: PLAN - Strategy Formulation
 
 **Objective:** Create an intelligent research roadmap
+
+**Progress:** `[Phase 2/N: PLAN] Creating research strategy and query plan...`
 
 **Activities:**
 1. Identify primary and secondary sources
@@ -37,7 +74,7 @@ This document contains the detailed methodology for conducting deep research. Th
 
 **Graph-of-Thoughts:** Branch into multiple potential research paths, then converge on optimal strategy.
 
-**Output:** Research plan with prioritized investigation paths
+**Output:** Research plan with prioritized investigation paths. Save checkpoint.
 
 ---
 
@@ -45,7 +82,28 @@ This document contains the detailed methodology for conducting deep research. Th
 
 **Objective:** Systematically collect information from multiple sources using parallel execution for maximum speed
 
+**Progress:** `[Phase 3/N: RETRIEVE] Launching N parallel searches + M sub-agents...`
+Update progress after results arrive: `[Phase 3/N: RETRIEVE] X/Y sources gathered, avg credibility Z/100...`
+
 **CRITICAL: Execute ALL searches in parallel using a single message with multiple tool calls**
+
+### Source Preference Heuristics
+
+**When evaluating search results and choosing which sources to fetch/read deeply, follow this priority order:**
+
+1. **Primary sources** — official documentation, research papers, government data, original datasets
+2. **Authoritative analysis** — peer-reviewed journals, recognized industry analysts, established research organizations
+3. **Quality journalism** — established publications with editorial standards and fact-checking processes
+4. **Technical content from verified practitioners** — blog posts from recognized experts with verifiable credentials
+
+**DEPRIORITIZE (lower credibility score, use only when primary sources are unavailable):**
+- SEO-optimized aggregator sites ("Top 10 best X" listicles, "Ultimate guide to Y")
+- AI-generated content farms (repetitive phrasing, no author attribution, thin content)
+- Sites with excessive ads/popups (proxy for low editorial standards)
+- Undated content with no author attribution
+- Paraphrased/rewritten versions of primary sources (find the original instead)
+
+This heuristic applies to both the main agent's search evaluation and to sub-agent prompts. Include this guidance in sub-agent prompts.
 
 ### Query Decomposition Strategy
 
@@ -243,21 +301,39 @@ The FFS (First Finish Search) pattern above applies only to the initial parallel
 
 **Objective:** Validate information across multiple independent sources
 
+**Progress:** `[Phase 4/N: TRIANGULATE] Cross-referencing X sources, Y claims to verify...`
+
+**Extended Thinking Task:** Before checking sources, think through which claims are most likely to have conflicting evidence. What are the controversial or rapidly-evolving aspects of this topic? Focus verification effort there.
+
 **Activities:**
 1. Identify claims requiring verification
 2. Cross-reference facts across 3+ sources
-3. Flag contradictions or uncertainties
+3. Identify and **resolve** contradictions (not just flag them — see protocol below)
 4. Assess source credibility
 5. Note consensus vs. debate areas
 6. Document verification status per claim
+
+### Contradiction Resolution Protocol
+
+When sources disagree on a claim, do NOT simply flag "sources disagree" and move on. Resolve each contradiction:
+
+1. **Identify the specific claim** where sources disagree
+2. **Compare source authority** — use credibility scores to weight which source is more trustworthy
+3. **Check recency** — more recent data may supersede older claims (especially for technology, pricing, regulatory topics)
+4. **Seek a tiebreaker** — look for a third independent source that confirms one position
+5. **Present the resolution in the report** with explicit reasoning:
+   > "Source A claims X [1], while Source B claims Y [2]. Based on [Source A's higher authority / more recent data / third source C confirming X], X appears more accurate because [specific reasoning]."
+6. **If genuinely unresolvable** — present both positions with equal weight and explicitly label as "contested":
+   > "This remains contested: Source A claims X [1] while Source B claims Y [2]. No tiebreaking evidence was found."
 
 **Quality Standards:**
 - Core claims must have 3+ independent sources
 - Flag any single-source information
 - Note recency of information
 - Identify potential biases
+- Every contradiction must be resolved or labeled "contested" — no silent disagreements
 
-**Output:** Verified fact base with confidence levels
+**Output:** Verified fact base with confidence levels and resolved contradictions. Save checkpoint.
 
 ---
 
@@ -356,6 +432,8 @@ The FFS (First Finish Search) pattern above applies only to the initial parallel
 
 **Objective:** Connect insights and generate novel understanding
 
+**Progress:** `[Phase 5/N: SYNTHESIZE] Connecting insights across X verified claims...`
+
 **Activities:**
 1. Identify patterns across sources
 2. Map relationships between concepts
@@ -364,15 +442,19 @@ The FFS (First Finish Search) pattern above applies only to the initial parallel
 5. Build argument structures
 6. Develop evidence hierarchies
 
-**Ultrathink Integration:** Use extended reasoning to explore non-obvious connections and second-order implications.
+**Extended Thinking Task:** Think through non-obvious connections and second-order implications. What patterns emerge when you look at the evidence as a whole that aren't visible in any single source? What would a domain expert notice that a generalist might miss?
 
-**Output:** Synthesized understanding with insight generation
+**Output:** Synthesized understanding with insight generation. Save checkpoint.
 
 ---
 
 ## Phase 6: CRITIQUE - Quality Assurance
 
 **Objective:** Rigorously evaluate research quality
+
+**Progress:** `[Phase 6/N: CRITIQUE] Running red-team analysis and identifying gaps...`
+
+**Extended Thinking Task:** Think through what a skeptical domain expert would challenge about these findings. What claims feel weakest? Where is the evidence thinnest? What alternative explanations haven't been considered?
 
 **Activities:**
 1. Review for logical consistency
@@ -395,10 +477,17 @@ Simulate 2-3 specific critic personas relevant to the topic:
 - "Adversarial Reviewer" — What would a peer reviewer reject?
 - "Implementation Engineer" — Can these recommendations actually be executed?
 
-**Critical Gap Loop-Back:**
-If critique identifies a critical knowledge gap (not just a writing issue), return to Phase 3 with targeted "delta-queries" before proceeding to Phase 7. Time-box to 3-5 minutes. This prevents publishing reports with known blind spots.
+**Critical Gap Loop-Back with Targeted Sub-Agents:**
+If critique identifies a critical knowledge gap (not just a writing issue):
+1. **Spawn 1-2 targeted sub-agents** via the Task tool to investigate the specific gap. Each sub-agent gets a focused prompt describing exactly what's missing and where to look.
+2. Sub-agents follow the same write-after-search protocol and output file path requirements as Phase 3 sub-agents.
+3. Wait for gap-filling sub-agents to complete (same stuck-agent monitoring applies).
+4. Integrate new evidence into the existing research before proceeding to Phase 7.
+5. **Time-box to 5 minutes.** If gaps cannot be filled, document them explicitly as limitations in the final report.
 
-**Output:** Critique report with improvement recommendations
+This is more powerful than the original "return to Phase 3" approach because targeted sub-agents can investigate specific deficiencies in parallel without restarting the entire retrieval pipeline.
+
+**Output:** Critique report with improvement recommendations. Save checkpoint.
 
 ---
 
@@ -418,9 +507,56 @@ If critique identifies a critical knowledge gap (not just a writing issue), retu
 
 ---
 
+## Phase 7.5: SELF-EVALUATE - Research Quality Scoring (Deep/UltraDeep only)
+
+**Objective:** Score the research output against a structured rubric before packaging. Catch quality issues that the critique phase may have missed.
+
+**Progress:** `[Phase 7.5/N: SELF-EVALUATE] Scoring research quality on 5 dimensions...`
+
+**When to Execute:** Deep and UltraDeep modes only (Quick and Standard skip this).
+
+**Rubric:** Score the draft research on each dimension from 0.0 to 1.0:
+
+| Dimension | Question | Threshold |
+|-----------|----------|-----------|
+| **Factual Accuracy** | Is every claim supported by cited evidence? Are there any unsourced assertions? | ≥ 0.7 |
+| **Citation Accuracy** | Do the citations actually support the specific claims they're attached to? Would reading the cited source confirm the claim? | ≥ 0.7 |
+| **Completeness** | Are all aspects of the research question addressed? Are there obvious angles that were missed? | ≥ 0.6 |
+| **Source Quality** | Is the source mix diverse (academic, industry, primary) and authoritative? Are there too many low-quality sources? | ≥ 0.6 |
+| **Coherence** | Does the argument flow logically? Are there contradictions between sections? Does the conclusion follow from the evidence? | ≥ 0.7 |
+
+**Scoring process:**
+1. Re-read the draft report with the rubric in mind
+2. For each dimension, assign a score with a 1-sentence justification
+3. Output the scorecard as a table
+
+**Loop-back triggers:**
+- Factual Accuracy < 0.7 → return to Phase 4 (TRIANGULATE) for additional verification
+- Citation Accuracy < 0.7 → run Citation Verification (below) then return to Phase 7 (REFINE)
+- Completeness < 0.6 → return to Phase 3 (RETRIEVE) for targeted gap-filling
+- Source Quality < 0.6 → return to Phase 3 (RETRIEVE) with source preference heuristics enforced more strictly
+- Coherence < 0.7 → return to Phase 7 (REFINE) for structural editing
+
+**Maximum 2 loop-back cycles** to prevent infinite loops. If scores remain below threshold after 2 cycles, proceed to PACKAGE and note the low-scoring dimensions in the Limitations section.
+
+### Citation Verification Agent
+
+After self-evaluation, if the research is Deep or UltraDeep mode, spawn a dedicated sub-agent for citation verification:
+
+**Prompt for citation verification sub-agent:**
+> "You are a citation verification agent. Read the research report at [REPORT_PATH]. For each numbered citation [N], verify that the cited source actually supports the specific claim it's attached to. Check: (1) Does the source URL resolve? (2) Does the source content actually contain information supporting the claim? (3) Is the claim a fair representation of what the source says, or is it distorted? Write your verification results to [OUTPUT_FILE_PATH]. Format: [N] VERIFIED/QUESTIONABLE/UNVERIFIABLE — reason."
+
+This is deeper than the existing verify_citations.py script (which checks URL/DOI validity). The citation agent does semantic matching — does the source actually say what the report claims it says?
+
+**Output:** Quality scorecard with dimension scores and justifications. Save checkpoint.
+
+---
+
 ## Phase 8: PACKAGE - Report Generation
 
 **Objective:** Deliver professional, actionable research
+
+**Progress:** `[Phase 8/N: PACKAGE] Generating final report with bibliography...`
 
 **Activities:**
 1. Structure report with clear hierarchy
@@ -429,8 +565,9 @@ If critique identifies a critical knowledge gap (not just a writing issue), retu
 4. Create visualizations (tables, diagrams)
 5. Compile full bibliography
 6. Add methodology appendix
+7. Include self-evaluation scorecard (if Phase 7.5 was executed) in the methodology appendix
 
-**Output:** Complete research report ready for use
+**Output:** Complete research report ready for use. Save final checkpoint.
 
 ---
 
