@@ -183,49 +183,53 @@ As results arrive:
 
 ### Operational Reliability Protocol
 
-**These rules prevent common failure modes during retrieval without affecting research accuracy.**
+**These rules prevent common failure modes during retrieval without affecting research accuracy.** The three protocols work together: the write-after-search pattern creates the file artifacts that stuck-agent detection monitors, and blocked-site handling is a specialized application of write-after-search for error scenarios.
 
 #### 1. Write-After-Search Protocol
 
-After every WebSearch or WebFetch call, immediately write findings to disk before performing the next search. The pattern is strictly:
+The initial parallel search burst (Step 1) launches all searches concurrently in a single message — this is unaffected. The write-after-search protocol applies to what happens **after** the burst results arrive and during **follow-up searches**:
+
+- **After the Step 1 parallel results arrive:** Immediately write ALL results to disk before performing any follow-up searches.
+- **All subsequent follow-up searches** (Step 3 tangents, gap-filling queries) must follow the strict pattern:
 
 ```
-Search → Write findings to file → Search → Write findings to file
+Follow-up Search → Write findings to file → Follow-up Search → Write findings to file
 ```
 
-**NEVER perform two consecutive searches without writing results in between.** Context compaction can destroy unsaved search results. Writing after every search ensures no findings are lost, even if the session is interrupted or context is compacted.
+**NEVER perform a follow-up search without first writing all pending results to disk.** Context compaction can destroy unsaved search results. Writing before each follow-up ensures no findings are lost, even if the session is interrupted or context is compacted.
 
-For sub-agents spawned via the Task tool, include this instruction in their prompt:
-> "After every search or fetch, immediately write your findings to your output file. Never accumulate multiple search results in memory without saving. The pattern is: Search → Edit file → Search → Edit file. No exceptions."
+**For sub-agents** spawned via the Task tool, the write-after-search pattern applies to every search since sub-agents execute sequentially. Include this instruction in their prompt along with a specific output file path (e.g., `/tmp/research_agent_N.md`):
+> "Write all findings to [OUTPUT_FILE_PATH]. After every search or fetch, immediately write your findings to your output file. Never accumulate multiple search results in memory without saving. The pattern is: Search → Edit file → Search → Edit file. No exceptions."
 
 #### 2. Stuck Agent Detection and Recovery
 
 When sub-agents are spawned for parallel retrieval, monitor them at escalating intervals:
-- First check: 30 seconds after launch
-- Second check: 2 minutes after launch
+- First check: 60 seconds after launch
+- Second check: 3 minutes after launch
 - Third check: 5 minutes after launch
 - Subsequent checks: every 5 minutes
 
-**Detection method:** Check each agent's output file line count with `wc -l`. If an agent's line count has NOT increased between two consecutive checks, it is stuck.
+**Detection method:** Check each agent's designated output file line count with `wc -l [OUTPUT_FILE_PATH]`. If an agent's file line count has NOT increased between two consecutive checks, it is stuck. This requires that sub-agent prompts include a specific output file path (as specified in section 1 above).
 
-**Recovery action:** Stop the stuck agent immediately with TaskStop. Relaunch a new agent with:
-- The stuck agent's partial output pre-loaded in the prompt
+**Recovery action:** Do not wait for the stuck agent. Launch a new replacement agent with:
+- The stuck agent's partial output (read from its output file) pre-loaded in the prompt
 - A note about which sections remain incomplete
 - Stricter time expectations
 
-This prevents the common failure mode where an agent hangs on a slow WebFetch and blocks the entire retrieval phase.
+Discard the stuck agent's results if it eventually completes after the replacement has finished. This prevents the common failure mode where an agent hangs on a slow WebFetch and blocks the entire retrieval phase.
 
 #### 3. Blocked Site Handling (403 Errors)
 
 When a WebFetch returns a 403, paywall, or access-denied error:
 1. **Write what you already have** to your output file immediately
-2. Try ONE alternative URL for the same information
-3. **Write again** after the alternative attempt
-4. Move on — do NOT try multiple alternative URLs in a row without writing
+2. If browser automation tools are available (e.g., `mcp__claude-in-chrome`), try the original URL via browser
+3. Otherwise, try ONE alternative URL for the same information
+4. **Write again** after the attempt
+5. Move on — do NOT try multiple alternative URLs in a row without writing
 
 This prevents the failure mode where an agent enters a retry loop on blocked sites, wasting context and time without producing output.
 
-**Output:** Organized information repository with source tracking, credibility scores, and coverage map
+**Output:** Incrementally-persisted research files with source tracking, credibility scores, and coverage map
 
 ---
 
