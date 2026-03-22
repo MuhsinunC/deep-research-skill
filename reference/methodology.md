@@ -11,9 +11,11 @@ This document contains the detailed methodology for conducting deep research. Th
 **At the start of each phase, output a brief progress line to the user.** Long research sessions (5-45 minutes) with no visible progress feel broken. Format:
 
 ```
-[Phase N/M: NAME] Brief description of what's happening...
-[Phase N/M: NAME] Key metric update (e.g., "15/20 sources gathered, avg credibility 72/100")...
+[Phase NAME] Brief description of what's happening...
+[Phase NAME] Key metric update (e.g., "15/20 sources gathered, avg credibility 72/100")...
 ```
+
+Use the phase name (e.g., `SCOPE`, `RETRIEVE`, `TRIANGULATE`), not a numeric index. This avoids ambiguity around half-phases (4.5, 7.5) and mode-dependent phase counts.
 
 This applies to every phase. It is not optional.
 
@@ -25,7 +27,7 @@ This applies to every phase. It is not optional.
 
 ```json
 {
-  "phase_completed": 4,
+  "phase_completed": "TRIANGULATE",
   "mode": "standard",
   "topic": "research topic here",
   "sources_gathered": 18,
@@ -35,6 +37,8 @@ This applies to every phase. It is not optional.
 }
 ```
 
+Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`, `"SELF-EVALUATE"`) for both `phase_completed` and `next_phase`. This avoids ambiguity with half-phases (4.5, 7.5).
+
 **On invocation:** Before starting Phase 1, check the output directory for an existing `_checkpoint.json`. If found, offer to resume from the last completed phase. This prevents total loss of work when context compaction or session interruption occurs mid-research.
 
 ---
@@ -43,7 +47,7 @@ This applies to every phase. It is not optional.
 
 **Objective:** Define research boundaries and success criteria
 
-**Progress:** `[Phase 1/N: SCOPE] Framing research question and defining boundaries...`
+**Progress:** `[Phase SCOPE] Framing research question and defining boundaries...`
 
 **Activities:**
 1. Decompose the question into core components
@@ -62,7 +66,7 @@ This applies to every phase. It is not optional.
 
 **Objective:** Create an intelligent research roadmap
 
-**Progress:** `[Phase 2/N: PLAN] Creating research strategy and query plan...`
+**Progress:** `[Phase PLAN] Creating research strategy and query plan...`
 
 **Activities:**
 1. Identify primary and secondary sources
@@ -72,7 +76,7 @@ This applies to every phase. It is not optional.
 5. Estimate time/effort per phase
 6. Define quality gates
 
-**Graph-of-Thoughts:** Branch into multiple potential research paths, then converge on optimal strategy.
+**Extended Thinking Task:** Branch into multiple potential research paths — consider which paths are most likely to yield actionable evidence and which are dead ends. Converge on the optimal strategy before proceeding.
 
 **Output:** Research plan with prioritized investigation paths. Save checkpoint.
 
@@ -82,8 +86,8 @@ This applies to every phase. It is not optional.
 
 **Objective:** Systematically collect information from multiple sources using parallel execution for maximum speed
 
-**Progress:** `[Phase 3/N: RETRIEVE] Launching N parallel searches + M sub-agents...`
-Update progress after results arrive: `[Phase 3/N: RETRIEVE] X/Y sources gathered, avg credibility Z/100...`
+**Progress:** `[Phase RETRIEVE] Launching N parallel searches + M sub-agents...`
+Update progress after results arrive: `[Phase RETRIEVE] X/Y sources gathered, avg credibility Z/100...`
 
 **CRITICAL: Execute ALL searches in parallel using a single message with multiple tool calls**
 
@@ -293,7 +297,7 @@ This prevents the failure mode where an agent enters a retry loop on blocked sit
 
 The FFS (First Finish Search) pattern above applies only to the initial parallel search burst (Step 1). It does NOT grant permission to skip ahead while sub-agents (Step 2) are still running. Sub-agent results are deep-dive evidence that triangulation depends on for cross-referencing.
 
-**Output:** Incrementally-persisted research files with source tracking, credibility scores, and coverage map
+**Output:** Incrementally-persisted research files with source tracking, credibility scores, and coverage map. Save checkpoint.
 
 ---
 
@@ -301,7 +305,7 @@ The FFS (First Finish Search) pattern above applies only to the initial parallel
 
 **Objective:** Validate information across multiple independent sources
 
-**Progress:** `[Phase 4/N: TRIANGULATE] Cross-referencing X sources, Y claims to verify...`
+**Progress:** `[Phase TRIANGULATE] Cross-referencing X sources, Y claims to verify...`
 
 **Extended Thinking Task:** Before checking sources, think through which claims are most likely to have conflicting evidence. What are the controversial or rapidly-evolving aspects of this topic? Focus verification effort there.
 
@@ -340,6 +344,8 @@ When sources disagree on a claim, do NOT simply flag "sources disagree" and move
 ## Phase 4.5: OUTLINE REFINEMENT - Dynamic Evolution (WebWeaver 2025)
 
 **Objective:** Adapt research direction based on evidence discovered
+
+**Progress:** `[Phase 4.5: OUTLINE REFINEMENT] Comparing initial scope against discovered evidence...`
 
 **Problem Solved:** Prevents "locked-in" research when evidence points to different conclusions or uncovers more important angles than initially planned.
 
@@ -399,6 +405,7 @@ When sources disagree on a claim, do NOT simply flag "sources disagree" and move
 
    If outline refinement reveals critical knowledge gaps:
    - Launch 2-3 targeted searches for newly identified angles
+   - Apply Source Preference Heuristics from Phase 3
    - Quick retrieval only (don't restart full Phase 3)
    - Time-box to 2-5 minutes
    - Update triangulation for new evidence only
@@ -416,7 +423,7 @@ When sources disagree on a claim, do NOT simply flag "sources disagree" and move
 - Retain original research question core (don't drift into different topic entirely)
 - New sections must have supporting evidence already gathered
 
-**Output:** Refined outline that accurately reflects evidence landscape, ready for synthesis
+**Output:** Refined outline that accurately reflects evidence landscape, ready for synthesis. Save checkpoint.
 
 **Anti-Pattern Warning:**
 - ❌ DON'T adapt outline based on speculation or "what would be interesting"
@@ -432,7 +439,7 @@ When sources disagree on a claim, do NOT simply flag "sources disagree" and move
 
 **Objective:** Connect insights and generate novel understanding
 
-**Progress:** `[Phase 5/N: SYNTHESIZE] Connecting insights across X verified claims...`
+**Progress:** `[Phase SYNTHESIZE] Connecting insights across X verified claims...`
 
 **Activities:**
 1. Identify patterns across sources
@@ -452,7 +459,7 @@ When sources disagree on a claim, do NOT simply flag "sources disagree" and move
 
 **Objective:** Rigorously evaluate research quality
 
-**Progress:** `[Phase 6/N: CRITIQUE] Running red-team analysis and identifying gaps...`
+**Progress:** `[Phase CRITIQUE] Running red-team analysis and identifying gaps...`
 
 **Extended Thinking Task:** Think through what a skeptical domain expert would challenge about these findings. What claims feel weakest? Where is the evidence thinnest? What alternative explanations haven't been considered?
 
@@ -479,11 +486,11 @@ Simulate 2-3 specific critic personas relevant to the topic:
 
 **Critical Gap Loop-Back with Targeted Sub-Agents:**
 If critique identifies a critical knowledge gap (not just a writing issue):
-1. **Spawn 1-2 targeted sub-agents** via the Task tool to investigate the specific gap. Each sub-agent gets a focused prompt describing exactly what's missing and where to look.
+1. **Spawn 1-2 targeted sub-agents** via the Task tool to investigate the specific gap. Each sub-agent gets a focused prompt describing exactly what's missing and where to look. Include Source Preference Heuristics from Phase 3 in the sub-agent prompt.
 2. Sub-agents follow the same write-after-search protocol and output file path requirements as Phase 3 sub-agents.
 3. Wait for gap-filling sub-agents to complete (same stuck-agent monitoring applies).
 4. Integrate new evidence into the existing research before proceeding to Phase 7.
-5. **Time-box to 5 minutes.** If gaps cannot be filled, document them explicitly as limitations in the final report.
+5. **Time-box to 5 minutes** (sub-agents need startup time, so 3 minutes is too tight). If gaps cannot be filled, document them explicitly as limitations in the final report.
 
 This is more powerful than the original "return to Phase 3" approach because targeted sub-agents can investigate specific deficiencies in parallel without restarting the entire retrieval pipeline.
 
@@ -495,6 +502,10 @@ This is more powerful than the original "return to Phase 3" approach because tar
 
 **Objective:** Address gaps and strengthen weak areas
 
+**Progress:** `[Phase 7: REFINE] Addressing critique findings and strengthening weak areas...`
+
+**Extended Thinking Task:** Review the critique report. Which issues are most damaging to the research's credibility? Prioritize those fixes. Think through whether the proposed fixes might introduce new inconsistencies.
+
 **Activities:**
 1. Conduct additional research for gaps
 2. Strengthen weak arguments
@@ -503,7 +514,7 @@ This is more powerful than the original "return to Phase 3" approach because tar
 5. Enhance clarity
 6. Verify revised content
 
-**Output:** Strengthened research with addressed deficiencies
+**Output:** Strengthened research with addressed deficiencies. Save checkpoint.
 
 ---
 
@@ -511,7 +522,7 @@ This is more powerful than the original "return to Phase 3" approach because tar
 
 **Objective:** Score the research output against a structured rubric before packaging. Catch quality issues that the critique phase may have missed.
 
-**Progress:** `[Phase 7.5/N: SELF-EVALUATE] Scoring research quality on 5 dimensions...`
+**Progress:** `[Phase SELF-EVALUATE] Scoring research quality on 5 dimensions...`
 
 **When to Execute:** Deep and UltraDeep modes only (Quick and Standard skip this).
 
@@ -544,7 +555,7 @@ This is more powerful than the original "return to Phase 3" approach because tar
 After self-evaluation, if the research is Deep or UltraDeep mode, spawn a dedicated sub-agent for citation verification:
 
 **Prompt for citation verification sub-agent:**
-> "You are a citation verification agent. Read the research report at [REPORT_PATH]. For each numbered citation [N], verify that the cited source actually supports the specific claim it's attached to. Check: (1) Does the source URL resolve? (2) Does the source content actually contain information supporting the claim? (3) Is the claim a fair representation of what the source says, or is it distorted? Write your verification results to [OUTPUT_FILE_PATH]. Format: [N] VERIFIED/QUESTIONABLE/UNVERIFIABLE — reason."
+> "You are a citation verification agent. Read the research report at [REPORT_PATH]. For each numbered citation [N], verify that the cited source actually supports the specific claim it's attached to. Check: (1) Does the source URL resolve? (2) Does the source content actually contain information supporting the claim? (3) Is the claim a fair representation of what the source says, or is it distorted? Write your verification results to [OUTPUT_FILE_PATH]. After every verification check, immediately write your results to [OUTPUT_FILE_PATH]. Never accumulate multiple verification results in memory without saving. Format: [N] VERIFIED/QUESTIONABLE/UNVERIFIABLE — reason."
 
 This is deeper than the existing verify_citations.py script (which checks URL/DOI validity). The citation agent does semantic matching — does the source actually say what the report claims it says?
 
@@ -556,7 +567,7 @@ This is deeper than the existing verify_citations.py script (which checks URL/DO
 
 **Objective:** Deliver professional, actionable research
 
-**Progress:** `[Phase 8/N: PACKAGE] Generating final report with bibliography...`
+**Progress:** `[Phase PACKAGE] Generating final report with bibliography...`
 
 **Activities:**
 1. Structure report with clear hierarchy
