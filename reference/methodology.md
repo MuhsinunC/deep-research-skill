@@ -495,14 +495,22 @@ The SYNTHESIZE phase's atomic claim screening uses effective source count (not r
    6. Synthesis & Recommendations
    ```
 
-4. **Targeted Gap Filling (if major gaps found)**
+4. **Draft-Guided Query Refinement and Gap Filling**
 
-   If outline refinement reveals critical knowledge gaps:
-   - Launch 2-3 targeted searches for newly identified angles
+   After refining the outline, review each section. For sections where evidence is thin, generate **refined search queries** that use specific terminology, findings, or author names discovered during initial retrieval. These targeted queries find sources that generic initial searches missed.
+
+   **Query refinement technique:** Use knowledge from the draft to construct better queries:
+   - If you found a key paper, search for papers that cite it or by the same authors
+   - If you found a specific technical term, search for that exact term (initial generic queries may have missed it)
+   - If a section has conflicting evidence, search specifically for the unresolved claim
+   - If a section covers a niche subtopic, use domain-specific jargon discovered during retrieval
+
+   **Execution:**
+   - Launch 2-3 refined searches per weak section
    - Apply Source Preference Heuristics from Phase 3
    - Quick retrieval only (don't restart full Phase 3)
    - Time-box to 2-5 minutes
-   - Update triangulation for new evidence only
+   - Update triangulation and independence scoring for new evidence only
 
 5. **Document Adaptation Rationale**
 
