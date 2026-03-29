@@ -35,13 +35,13 @@ deep research in ultradeep mode: compare PostgreSQL vs Supabase for our stack
 | Mode | Phases | Duration | Best For |
 |------|--------|----------|----------|
 | Quick | 3 | 2-5 min | Initial exploration |
-| Standard | 6 | 5-10 min | Most research questions |
-| Deep | 8 | 10-20 min | Complex topics, critical decisions |
-| UltraDeep | 8+ | 20-45 min | Comprehensive reports, maximum rigor |
+| Standard | 7 | 5-10 min | Most research questions |
+| Deep | 10 | 10-20 min | Complex topics, critical decisions |
+| UltraDeep | 10 | 20-45 min | Comprehensive reports, maximum rigor |
 
 ## Pipeline
 
-Scope &rarr; Plan &rarr; **Retrieve** (parallel search + agents) &rarr; Triangulate &rarr; Outline Refinement &rarr; Synthesize &rarr; Critique (with loop-back) &rarr; Refine &rarr; Package
+Scope &rarr; Plan &rarr; **Retrieve** (parallel search + agents) &rarr; Triangulate &rarr; Outline Refinement &rarr; Synthesize &rarr; Critique (with loop-back) &rarr; Refine &rarr; **Verify** (tool-grounded claim verification) &rarr; Package
 
 Key features:
 - **Step 0**: Retrieves current date before searches (prevents stale training-data year assumptions)

@@ -89,7 +89,7 @@ Mode Selection
 
 **Output files (all to `~/Documents/Research/[Topic]_[YYYYMMDD]_[UUID8]/`):**
 - UUID8 = first 8 characters of a UUID, generated at task start via `uuidgen | cut -c1-8`
-- Registered in `~/.claude/research-tasks.json` with: uuid, topic, status, output_dir, start_time
+- Registered in `~/.claude/research-tasks.json` with: uuid, topic, status, output_dir, start_time, mode
 - Markdown (primary source)
 - HTML (McKinsey style, auto-opened)
 - PDF (professional print, auto-opened)

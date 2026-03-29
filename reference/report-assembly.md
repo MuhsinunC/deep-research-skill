@@ -28,7 +28,7 @@
 
 ### Phase 8.1: Setup
 
-Use the output directory created during Task Registration (Phase 0). Do NOT create a new directory — it already exists with UUID.
+Use the output directory created during Task Registration (before Phase 1). Do NOT create a new directory — it already exists with UUID.
 
 ```bash
 # Output directory was created at task start:

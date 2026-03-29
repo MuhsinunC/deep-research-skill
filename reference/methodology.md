@@ -1,8 +1,8 @@
-# Deep Research Methodology: 8-Phase Pipeline
+# Deep Research Methodology: 10-Phase Pipeline
 
 ## Overview
 
-This document contains the detailed methodology for conducting deep research. The 8 phases represent a comprehensive approach to gathering, verifying, and synthesizing information from multiple sources.
+This document contains the detailed methodology for conducting deep research. The 10 phases (including sub-phases 4.5 and 7.5) represent a comprehensive approach to gathering, verifying, and synthesizing information from multiple sources.
 
 ## Inline Verification Principle (Inspired by MiroThinker)
 
@@ -233,10 +233,12 @@ This prevents synthesis fatigue when merging results from 3-5 agents.
 - WebSearch(query="quantum computing commercial applications [CURRENT_YEAR]")
 - WebSearch(query="quantum computing vs classical comparison")
 - WebSearch(query="quantum error correction research", allowed_domains=["arxiv.org", "scholar.google.com"])
-- Task(subagent_type="general-purpose", description="Analyze quantum computing papers", prompt="Deep dive into quantum computing academic papers from [CURRENT_YEAR], extract key findings and methodologies")
-- Task(subagent_type="general-purpose", description="Industry analysis", prompt="Analyze quantum computing industry reports and market data, identify commercial applications")
-- Task(subagent_type="general-purpose", description="Technical challenges", prompt="Extract technical limitations and challenges from quantum computing research")
+- Task(subagent_type="general-purpose", description="Analyze quantum computing papers", prompt="Deep dive into quantum computing academic papers from [CURRENT_YEAR], extract key findings and methodologies. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", description="Industry analysis", prompt="Analyze quantum computing industry reports and market data, identify commercial applications. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", description="Technical challenges", prompt="Extract technical limitations and challenges from quantum computing research. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
 ```
+
+**NOTE:** All sub-agent prompts MUST include: (1) write-after-search protocol, (2) output file path, (3) source preference heuristics. The examples above show the minimum required additions.
 
 **Example parallel execution (using Exa MCP - if available):**
 ```
@@ -418,6 +420,8 @@ Early search results are not inherently more accurate. Explicitly check whether 
 **Objective:** Adapt research direction based on evidence discovered
 
 **Progress:** `[Phase OUTLINE REFINEMENT] Comparing initial scope against discovered evidence...`
+
+**Extended Thinking Task:** Think through whether the evidence gathered actually supports the original outline structure. Are there findings that don't fit any current section? Are there sections with weak evidence that should be demoted? Would a domain expert organize this information differently?
 
 **Problem Solved:** Prevents "locked-in" research when evidence points to different conclusions or uncovers more important angles than initially planned.
 
@@ -613,6 +617,8 @@ This is more powerful than the original "return to Phase 3" approach because tar
 **Objective:** Verify the research output using external tool checks, not internal self-reflection. Academic research (Huang et al., CRITIC framework) shows pure self-reflection can DECREASE accuracy — models change correct answers to wrong ones more often than they fix errors. Tool-grounded verification is the only reliable approach.
 
 **Progress:** `[Phase VERIFY] Decomposing report into claims and verifying against sources...`
+
+**Extended Thinking Task:** Before decomposing, think through which claims in the report are highest-risk for inaccuracy. Quantitative claims, causal claims, and claims that surprised you during research are the most likely to be wrong. Prioritize verifying those.
 
 **When to Execute:** Deep and UltraDeep modes only (Quick and Standard skip this).
 
