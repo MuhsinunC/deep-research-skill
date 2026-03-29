@@ -14,6 +14,27 @@ This document contains the detailed methodology for conducting deep research. Th
 
 This does NOT replace the dedicated TRIANGULATE and VERIFY phases. It supplements them with continuous vigilance.
 
+## High-Confidence Hallucination Vigilance
+
+LLMs exhibit an effect analogous to Dunning-Kruger: they are MOST confident about claims that are MOST likely to be hallucinated. Specific, detailed, authoritative-sounding claims (exact numbers, precise dates, named entities, causal mechanisms) are higher hallucination risk than vague or hedged claims. The model can fluently reproduce the *pattern* of confidence without having verified the *content*.
+
+**Counter-intuitive rule: Be MORE skeptical of claims you're most confident about.**
+
+**High-risk claim categories (in descending risk order):**
+1. **Causal claims** ("X causes Y because Z") — verify the causal mechanism, not just the correlation
+2. **Precise quantitative claims** ("costs $Y/month," "achieves 94.3% accuracy") — require source verification even if they feel "obviously correct"
+3. **Named-entity relationships** ("Company X acquired Company Y in 2024") — verify the specific relationship, not just that both entities exist
+4. **Temporal claims** ("introduced in March 2025") — exact dates are frequently hallucinated
+5. **Comparative claims** ("X is faster than Y") — verify the comparison was measured, not assumed
+
+**Application across phases:**
+- **RETRIEVE:** Don't skip searching for claims you think you already know. Training data may be outdated or wrong.
+- **TRIANGULATE:** Give extra verification attention to claims where confidence is highest — these are the claims most likely to have subtle errors that pass unnoticed.
+- **SYNTHESIZE:** When screening claims, flag any that feel "obviously true" for additional scrutiny. Obvious-feeling claims are where hallucination hides.
+- **VERIFY:** Prioritize high-confidence claims for tool-grounded verification — they are the most dangerous if wrong because readers won't question them either.
+
+This principle augments the Inline Verification Principle above by targeting verification effort where it is most needed — on claims where confidence is highest and verification instinct is weakest.
+
 ## Replanning on Contradiction
 
 When evidence at ANY phase contradicts the current research direction or a key assumption from Phase 1 (SCOPE):
@@ -23,6 +44,33 @@ When evidence at ANY phase contradicts the current research direction or a key a
 4. **If major:** Return to OUTLINE REFINEMENT (Phase 4.5) to restructure. Do NOT continue building on a foundation that the evidence has undermined.
 
 This selective rollback approach prevents the sunk-cost fallacy of continuing research in a direction the evidence no longer supports.
+
+---
+
+## Metacognitive Cycling Protocol (Think2)
+
+Academic research on LLM self-correction shows that unstructured "think step-by-step" prompting underperforms structured metacognitive cycling — Think2 (arXiv 2602.18806) achieved a ~3x improvement in successful self-correction rate on 8B-parameter models (Llama-3, Qwen-3) by structuring reasoning into Planning, Monitoring, and Evaluation layers. The Think2 approach structures each phase's reasoning into three layers:
+
+**Before executing a phase (PLAN):**
+- What is the specific goal of this phase?
+- What inputs do I have, and what outputs must I produce?
+- What are the most likely failure modes for this phase?
+
+**During execution (MONITOR):**
+- Am I making progress toward the phase goal, or am I stuck/drifting?
+- Am I following the methodology, or have I deviated?
+- Have I encountered any of the predicted failure modes?
+
+**After completing a phase (EVALUATE):**
+- Did I achieve the phase goal? What evidence confirms this?
+- What was the quality of my output? (Be specific — count claims, sources, gaps)
+- What should the next phase be especially careful about, given what I found?
+
+**Application:** Each phase already has an Extended Thinking Task that provides phase-specific reasoning prompts. Wrap those within this Plan→Monitor→Evaluate cycle: the Extended Thinking Task becomes the PLAN step. After executing the phase's activities, run MONITOR (mid-phase self-check) and EVALUATE (post-phase quality check) as brief internal assessments before saving the checkpoint.
+
+This is NOT additional time — it's structuring the thinking that already happens into a more effective pattern. The EVALUATE step's output feeds directly into the next phase's PLAN step, creating a continuous improvement loop across the pipeline.
+
+**Note on MONITOR:** Unlike PLAN and EVALUATE (which have explicit checkpoints), MONITOR operates continuously during execution. It is intentionally left generic — check against phase goals and predicted failure modes whenever you complete a sub-step. The most valuable MONITOR points are: during RETRIEVE when collecting parallel results, and during SYNTHESIZE when building arguments from screened claims.
 
 ---
 
@@ -108,7 +156,9 @@ Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`
 5. List key assumptions to validate
 6. Classify topic time domain for temporal credibility decay (see Source Preference Heuristics). For multi-domain topics, assign per sub-question: e.g., "regulatory aspect = Legal/5yr, tooling aspect = Tech/90d"
 
-**Extended Thinking Task:** Before committing to scope, think through 3 alternative framings of the research question. Consider: Is the question too broad? Too narrow? Is there a more precise version that would yield more actionable results? Choose the framing that best serves the user's likely intent.
+**Extended Thinking Task (Think2 PLAN step):** Before committing to scope, think through 3 alternative framings of the research question. Consider: Is the question too broad? Too narrow? Is there a more precise version that would yield more actionable results? Choose the framing that best serves the user's likely intent. Identify likely failure modes: Are any assumptions unverifiable? Is the scope too broad for the selected mode?
+
+**Think2 EVALUATE (after activities):** Did the scope capture all components of the research question? Count: how many sub-questions were identified, how many assumptions need validation? Flag anything the next phase (PLAN) should be especially careful about.
 
 **Output:** Structured scope document with research boundaries. Save checkpoint.
 
@@ -128,7 +178,9 @@ Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`
 5. Estimate time/effort per phase
 6. Define quality gates
 
-**Extended Thinking Task:** Branch into multiple potential research paths — consider which paths are most likely to yield actionable evidence and which are dead ends. Converge on the optimal strategy before proceeding.
+**Extended Thinking Task (Think2 PLAN step):** Branch into multiple potential research paths — consider which paths are most likely to yield actionable evidence and which are dead ends. Converge on the optimal strategy before proceeding. Predict: which query formulations are most likely to fail? Which source types will be hardest to find?
+
+**Think2 EVALUATE (after activities):** Does the plan cover all sub-questions from SCOPE? Count: how many search angles were identified? Are there any single-source dependencies in the plan? Flag gaps for RETRIEVE.
 
 **Output:** Research plan with prioritized investigation paths. Save checkpoint.
 
@@ -242,6 +294,24 @@ Use Task tool with general-purpose agents (3-5 agents) for:
 ```
 This prevents synthesis fatigue when merging results from 3-5 agents.
 
+### Heterogeneous Tool Assignment for Sub-Agents
+
+**Problem:** When all sub-agents receive similar query formulations, they produce correlated results — the same sources, same perspectives, same blind spots. Correlated errors are the most dangerous failure mode in parallel retrieval because TRIANGULATE cannot catch what every agent missed.
+
+**Solution:** Assign each sub-agent a distinct research lens so they search from different angles:
+
+| Agent | Lens | Query Style | Prioritizes |
+|-------|------|-------------|-------------|
+| A | Academic/Formal | Technical jargon, author names, DOI, paper titles | Peer-reviewed sources, arxiv, conference proceedings |
+| B | Practitioner/Applied | "how to," framework names, case studies, tutorials | Real-world implementations, StackOverflow, dev blogs |
+| C | Critical/Adversarial | "[topic] problems," "failures," "criticism," "overhyped" | Limitations, failure modes, negative results |
+| D (optional) | Historical/Foundational | "[topic] history," "original paper," "seminal work" | Origin stories, foundational research, evolution of ideas |
+
+**Include the assigned lens in each sub-agent's prompt.** Example:
+> "You are researching [topic] with a CRITICAL/ADVERSARIAL lens. Your job is specifically to find problems, limitations, failures, and criticisms. Do NOT focus on benefits or positive findings — other agents are covering that. Write findings to [OUTPUT_FILE]. After every search, write immediately."
+
+**Why this matters:** Like ensemble methods in ML, diversity of approach is what makes parallel agents valuable. If all agents search the same way, the ensemble has no advantage over a single agent. Heterogeneous assignment ensures that at least one agent is looking where the others aren't.
+
 **Example parallel execution (using WebSearch):**
 ```
 [Single message with multiple tool calls]
@@ -250,12 +320,12 @@ This prevents synthesis fatigue when merging results from 3-5 agents.
 - WebSearch(query="quantum computing commercial applications [CURRENT_YEAR]")
 - WebSearch(query="quantum computing vs classical comparison")
 - WebSearch(query="quantum error correction research", allowed_domains=["arxiv.org", "scholar.google.com"])
-- Task(subagent_type="general-purpose", description="Analyze quantum computing papers", prompt="Deep dive into quantum computing academic papers from [CURRENT_YEAR], extract key findings and methodologies. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
-- Task(subagent_type="general-purpose", description="Industry analysis", prompt="Analyze quantum computing industry reports and market data, identify commercial applications. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
-- Task(subagent_type="general-purpose", description="Technical challenges", prompt="Extract technical limitations and challenges from quantum computing research. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", description="Academic deep dive", prompt="LENS: ACADEMIC/FORMAL. Deep dive into quantum computing academic papers from [CURRENT_YEAR]. Use technical jargon, author names, DOI searches. Prioritize peer-reviewed sources, arxiv, conference proceedings. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", description="Practitioner analysis", prompt="LENS: PRACTITIONER/APPLIED. Analyze quantum computing real-world implementations, industry reports, case studies, and market data. Use practical terms, framework names. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", description="Critical analysis", prompt="LENS: CRITICAL/ADVERSARIAL. Find problems, limitations, failures, and criticisms of quantum computing. Search for 'quantum computing problems', 'overhyped', 'limitations'. Do NOT focus on benefits. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
 ```
 
-**NOTE:** All sub-agent prompts MUST include: (1) write-after-search protocol, (2) output file path, (3) source preference heuristics. The examples above show the minimum required additions.
+**NOTE:** All sub-agent prompts MUST include: (1) write-after-search protocol, (2) output file path, (3) source preference heuristics, (4) assigned research lens (see Heterogeneous Tool Assignment). The examples above show the minimum required additions.
 
 **Example parallel execution (using Exa MCP - if available):**
 ```
@@ -264,7 +334,9 @@ This prevents synthesis fatigue when merging results from 3-5 agents.
 - mcp__Exa__exa_search(query="quantum computing limitations", type="keyword", num_results=10)
 - mcp__Exa__exa_search(query="quantum computing commercial", type="auto", num_results=10, start_published_date="[use current year from Step 0]")
 - mcp__Exa__exa_search(query="quantum error correction", type="neural", num_results=10, include_domains=["arxiv.org"])
-- Task(subagent_type="general-purpose", description="Academic analysis", prompt="Analyze quantum computing academic papers")
+- Task(subagent_type="general-purpose", description="Academic deep dive", prompt="LENS: ACADEMIC/FORMAL. Deep dive into quantum computing academic papers. Use technical jargon, author names, DOI searches. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", description="Practitioner analysis", prompt="LENS: PRACTITIONER/APPLIED. Analyze quantum computing real-world implementations. Use practical terms, case studies. Write findings to [OUTPUT_FILE]. After every search, write immediately.")
+- Task(subagent_type="general-purpose", description="Critical analysis", prompt="LENS: CRITICAL/ADVERSARIAL. Find problems, limitations, failures of quantum computing. Do NOT focus on benefits. Write findings to [OUTPUT_FILE]. After every search, write immediately.")
 ```
 
 **Step 3: Collect and organize results**
@@ -381,6 +453,8 @@ This prevents the failure mode where an agent enters a retry loop on blocked sit
 
 The FFS (First Finish Search) pattern above applies only to the initial parallel search burst (Step 1). It does NOT grant permission to skip ahead while sub-agents (Step 2) are still running. Sub-agent results are deep-dive evidence that triangulation depends on for cross-referencing.
 
+**Think2 EVALUATE (after activities):** Count sources gathered vs. target. Assess: what percentage of PLAN's search angles yielded results? Which angles came up empty — is that exhaustion or bad queries? What does the next phase (TRIANGULATE) need to watch for?
+
 **Output:** Incrementally-persisted research files with source tracking, credibility scores, and coverage map. Save checkpoint.
 
 ---
@@ -391,7 +465,7 @@ The FFS (First Finish Search) pattern above applies only to the initial parallel
 
 **Progress:** `[Phase TRIANGULATE] Cross-referencing X sources, Y claims to verify...`
 
-**Extended Thinking Task:** Before checking sources, think through which claims are most likely to have conflicting evidence. What are the controversial or rapidly-evolving aspects of this topic? Focus verification effort there.
+**Extended Thinking Task (Think2 PLAN step):** Before checking sources, think through which claims are most likely to have conflicting evidence. What are the controversial or rapidly-evolving aspects of this topic? Focus verification effort there.
 
 **Activities:**
 1. Identify claims requiring verification
@@ -458,6 +532,8 @@ The SYNTHESIZE phase's atomic claim screening uses effective source count (not r
 - Every contradiction must be resolved or labeled "contested" — no silent disagreements
 - Devil's advocate searches must be performed — no exceptions
 
+**Think2 EVALUATE (after activities):** Count: how many claims were verified vs. contested vs. single-source? How many contradictions were resolved vs. left contested? Did devil's advocate searches uncover anything that changes the emerging thesis? Flag weak claims for SYNTHESIZE screening.
+
 **Output:** Verified fact base with confidence levels, independence assessments, resolved contradictions, and devil's advocate search results. Save checkpoint.
 
 ---
@@ -468,7 +544,7 @@ The SYNTHESIZE phase's atomic claim screening uses effective source count (not r
 
 **Progress:** `[Phase OUTLINE REFINEMENT] Comparing initial scope against discovered evidence...`
 
-**Extended Thinking Task:** Think through whether the evidence gathered actually supports the original outline structure. Are there findings that don't fit any current section? Are there sections with weak evidence that should be demoted? Would a domain expert organize this information differently?
+**Extended Thinking Task (Think2 PLAN step):** Think through whether the evidence gathered actually supports the original outline structure. Are there findings that don't fit any current section? Are there sections with weak evidence that should be demoted? Would a domain expert organize this information differently?
 
 **Problem Solved:** Prevents "locked-in" research when evidence points to different conclusions or uncovers more important angles than initially planned.
 
@@ -554,6 +630,8 @@ The SYNTHESIZE phase's atomic claim screening uses effective source count (not r
 - Retain original research question core (don't drift into different topic entirely)
 - New sections must have supporting evidence already gathered
 
+**Think2 EVALUATE (after activities):** Did the outline change? If so, is every change evidence-driven (cite the source)? Count: how many sections were added/removed/reordered? Are any new sections still evidence-thin? Flag remaining gaps for SYNTHESIZE to handle.
+
 **Output:** Refined outline that accurately reflects evidence landscape, ready for synthesis. Save checkpoint.
 
 **Anti-Pattern Warning:**
@@ -598,7 +676,9 @@ This prevents the hub-corruption failure: if one bad claim is accepted into synt
 6. Build argument structures
 7. Develop evidence hierarchies
 
-**Extended Thinking Task:** Think through non-obvious connections and second-order implications. What patterns emerge when you look at the evidence as a whole that aren't visible in any single source? What would a domain expert notice that a generalist might miss? Are any of your emerging conclusions dependent on a single source — if so, how confident should you be?
+**Extended Thinking Task (Think2 PLAN step):** Think through non-obvious connections and second-order implications. What patterns emerge when you look at the evidence as a whole that aren't visible in any single source? What would a domain expert notice that a generalist might miss? Are any of your emerging conclusions dependent on a single source — if so, how confident should you be?
+
+**Think2 EVALUATE (after activities):** Count: how many claims passed screening vs. were rejected? Are any conclusions dependent on a single source? Do the insights go beyond what any individual source says (genuine synthesis) or are they just summaries? Flag any single-source conclusions for CRITIQUE.
 
 **Output:** Synthesized understanding with insight generation, with claim acceptance/rejection log. Save checkpoint.
 
@@ -610,7 +690,7 @@ This prevents the hub-corruption failure: if one bad claim is accepted into synt
 
 **Progress:** `[Phase CRITIQUE] Running red-team analysis and identifying gaps...`
 
-**Extended Thinking Task:** Think through what a skeptical domain expert would challenge about these findings. What claims feel weakest? Where is the evidence thinnest? What alternative explanations haven't been considered?
+**Extended Thinking Task (Think2 PLAN step):** Think through what a skeptical domain expert would challenge about these findings. What claims feel weakest? Where is the evidence thinnest? What alternative explanations haven't been considered?
 
 **Activities:**
 1. Review for logical consistency
@@ -643,6 +723,8 @@ If critique identifies a critical knowledge gap (not just a writing issue):
 
 This is more powerful than the original "return to Phase 3" approach because targeted sub-agents can investigate specific deficiencies in parallel without restarting the entire retrieval pipeline.
 
+**Think2 EVALUATE (after activities):** Count: how many critical gaps were found vs. minor issues? Were gap-filling sub-agents needed? Did any critique finding fundamentally challenge a conclusion from SYNTHESIZE? Flag the most damaging findings for REFINE priority.
+
 **Output:** Critique report with improvement recommendations. Save checkpoint.
 
 ---
@@ -653,7 +735,7 @@ This is more powerful than the original "return to Phase 3" approach because tar
 
 **Progress:** `[Phase REFINE] Addressing critique findings and strengthening weak areas...`
 
-**Extended Thinking Task:** Review the critique report. Which issues are most damaging to the research's credibility? Prioritize those fixes. Think through whether the proposed fixes might introduce new inconsistencies.
+**Extended Thinking Task (Think2 PLAN step):** Review the critique report. Which issues are most damaging to the research's credibility? Prioritize those fixes. Think through whether the proposed fixes might introduce new inconsistencies.
 
 **Activities:**
 1. Conduct additional research for gaps
@@ -662,6 +744,8 @@ This is more powerful than the original "return to Phase 3" approach because tar
 4. Resolve contradictions
 5. Enhance clarity
 6. Verify revised content
+
+**Think2 EVALUATE (after activities):** Did each critique finding get addressed? Count: how many gaps were filled vs. documented as limitations? Did any fixes introduce new inconsistencies (the "fake fix" problem)? Is the research ready for verification?
 
 **Output:** Strengthened research with addressed deficiencies. Save checkpoint.
 
@@ -673,7 +757,7 @@ This is more powerful than the original "return to Phase 3" approach because tar
 
 **Progress:** `[Phase VERIFY] Decomposing report into claims and verifying against sources...`
 
-**Extended Thinking Task:** Before decomposing, think through which claims in the report are highest-risk for inaccuracy. Quantitative claims, causal claims, and claims that surprised you during research are the most likely to be wrong. Prioritize verifying those.
+**Extended Thinking Task (Think2 PLAN step):** Before decomposing, think through which claims in the report are highest-risk for inaccuracy. Quantitative claims, causal claims, and claims that surprised you during research are the most likely to be wrong. Prioritize verifying those.
 
 **When to Execute:** Deep and UltraDeep modes only (Quick and Standard skip this).
 
@@ -701,8 +785,26 @@ Skip claims that are:
 
 Spawn 2-3 sub-agents to verify claims in parallel. Each sub-agent gets a batch of claims and their cited source URLs.
 
+**CRITICAL — Information Asymmetry Protocol:**
+Verification sub-agents must receive ONLY the claims and their cited source URLs — NOT the full report, NOT the surrounding analysis, and NOT the report's conclusions. This prevents confirmation bias: a verifier who has read the full report will unconsciously seek to confirm its conclusions rather than genuinely checking the evidence.
+
+**What to include in the verification prompt:**
+- The exact claim text (isolated from its surrounding paragraph)
+- The citation number and source URL
+- The verification instructions below
+
+**What to EXCLUDE from the verification prompt:**
+- The full report draft
+- The report's conclusions or synthesis
+- Other claims (each batch should be verifiable without knowing what else the report says)
+- The research question or scope (the verifier doesn't need to know the report's thesis)
+
+**Batch composition note:** When distributing claims across sub-agents, avoid grouping claims from the same report section together. A batch of closely related claims may allow the verifier to infer the report's thesis, partially undermining the asymmetry. Distribute claims across sections when possible.
+
 **Prompt for each verification sub-agent:**
-> "You are a claim verification agent. For each claim below, use WebFetch to retrieve the cited source URL and verify whether the source actually supports the claim. Do NOT rely on your training data — you MUST fetch and read the source.
+> "You are a claim verification agent. You have NO context about what report these claims come from or what conclusions the report reaches. Your ONLY job is to check whether each cited source actually supports the claim.
+>
+> For each claim below, use WebFetch to retrieve the cited source URL and verify whether the source actually supports the claim. Do NOT rely on your training data — you MUST fetch and read the source.
 >
 > For each claim, report:
 > - VERIFIED: Source content confirms the claim
@@ -742,6 +844,8 @@ These are structural checks (counting, matching) not subjective quality scoring.
 
 **Maximum 2 loop-back cycles** to prevent infinite loops. If issues persist after 2 cycles, proceed to PACKAGE and document all QUESTIONABLE/UNVERIFIABLE/CONTRADICTED claims in the Limitations section.
 
+**Think2 EVALUATE (after activities):** Count: how many claims VERIFIED vs. QUESTIONABLE vs. CONTRADICTED vs. UNVERIFIABLE? Is the pass rate acceptable, or does the report need another REFINE cycle? What should PACKAGE emphasize in the methodology appendix?
+
 **Output:** Verification results file with per-claim status and evidence. Save checkpoint.
 
 ---
@@ -752,6 +856,8 @@ These are structural checks (counting, matching) not subjective quality scoring.
 
 **Progress:** `[Phase PACKAGE] Generating final report with bibliography...`
 
+**Extended Thinking Task (Think2 PLAN step):** Before writing, review the refined outline and verification results. Which findings are most important for the executive summary? Are there any VERIFY results (QUESTIONABLE/CONTRADICTED) that must be reflected in the limitations section? Does the bibliography need cleanup (duplicates, dead links)?
+
 **Activities:**
 1. Structure report with clear hierarchy
 2. Write executive summary
@@ -760,6 +866,8 @@ These are structural checks (counting, matching) not subjective quality scoring.
 5. Compile full bibliography
 6. Add methodology appendix
 7. Include verification results summary (per-claim status from Phase 7.5 VERIFY) in the methodology appendix
+
+**Think2 EVALUATE (after activities):** Does the report address every component of the original research question from SCOPE? Count: citations in text vs. bibliography entries — do they match? Are all VERIFY findings represented in the methodology appendix? Is the executive summary accurate and not overstated relative to the evidence?
 
 **Output:** Complete research report ready for use. Save final checkpoint.
 
