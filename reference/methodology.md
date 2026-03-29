@@ -407,15 +407,17 @@ Early search results are not inherently more accurate. Explicitly check whether 
 
 Before accepting that a claim has "3+ independent sources," verify the sources are actually independent — not all citing the same original. This prevents circular citation from inflating confidence.
 
-**For each major claim with 3+ sources, check:**
+**For each major claim with 2+ sources, check:**
 1. **Do the sources cite each other?** If Source B explicitly references Source A, they are not independent — Source B is an echo of Source A.
 2. **Do they trace to the same original?** If three blog posts all summarize the same research paper, that's 1 source with 3 echoes, not 3 independent sources. Look for the original and cite it instead.
 3. **Are they from the same organization/author?** Multiple publications from the same research group on the same topic count as 1 perspective, not independent confirmation.
 
-**Independence scoring:**
-- 3+ truly independent sources → **HIGH confidence** (proceed normally)
-- 1 original + multiple echoes → **MEDIUM confidence** (label as "widely reported but single-origin" in the report)
-- 1 source only, no echoes → **LOW confidence** (label as "single-source, unverified" in the report)
+**Independence scoring (affects downstream SYNTHESIZE gate):**
+- 3+ truly independent sources → **effective source count = actual count** (proceed normally)
+- 1 original + multiple echoes → **effective source count = 1** regardless of echo count (label as "widely reported but single-origin" in the report)
+- 1 source only, no echoes → **effective source count = 1** (label as "single-source, unverified" in the report)
+
+The SYNTHESIZE phase's atomic claim screening uses effective source count (not raw count) when checking "2+ independent sources." A claim with 5 blog posts all citing the same study has effective count = 1 and will be flagged as single-source.
 
 **When independence is unclear:** Check the publication dates. If multiple sources appeared within days of each other on the same claim, they likely trace to a common press release or original report. Find the original.
 
@@ -538,7 +540,7 @@ Before accepting that a claim has "3+ independent sources," verify the sources a
 Before synthesizing, screen each major claim for independent verifiability. This prevents the "Spark to Fire" failure mode (DeepMind, 2026) where errors in one part of the evidence base amplify through synthesis into systematically wrong conclusions.
 
 **For each major claim entering synthesis:**
-1. Does this claim have support from 2+ INDEPENDENT sources (not sources citing each other)?
+1. Does this claim have an **effective source count** of 2+ (per independence scoring from TRIANGULATE — not raw count, which may include echoes of the same original)?
 2. Was this claim verified during TRIANGULATE, or is it an unverified carryover?
 3. Is this claim from a high-credibility source (>60/100) or a low-credibility one?
 
