@@ -293,6 +293,18 @@ As results arrive:
 - Additional sources used in Phase 5 (SYNTHESIZE) for depth and diversity
 - Allows fast progression without sacrificing thoroughness
 
+**Exhaustion criteria (when to STOP searching):**
+The FFS pattern defines when you have ENOUGH. These criteria define when information likely DOESN'T EXIST — preventing endless searching for something that isn't published:
+
+- **5+ searches** on the same sub-topic with zero relevant results → declare "No published evidence found for [sub-topic]"
+- **3+ different query formulations** (keyword, semantic, domain-specific) all return nothing → the information likely doesn't exist in searchable form
+- **All found sources are beyond 2 half-lives** old with no recent updates → topic may be dormant; note "No recent activity found"
+
+**When declaring absence, this IS a finding.** Document it in the report:
+> "No published evidence was found for [claim/topic] despite [N] searches across [M] query formulations. This absence is itself informative — it suggests [the topic is under-researched / the claim is unsupported / the question may be novel]."
+
+Do NOT keep searching past exhaustion criteria hoping something will appear. Absence of evidence, after systematic search, is data.
+
 ### Quality Standards
 
 **Source diversity requirements:**
