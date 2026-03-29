@@ -125,7 +125,7 @@ OUTPUT_DIR=~/Documents/Research/${TOPIC_SLUG}_${DATE}_${UUID8}
 **Step 2: Spawn the background research instance:**
 ```
 Bash(run_in_background: true):
-claude -p "You are running a deep research task. Topic: ${TOPIC}. Save all output to ${OUTPUT_DIR}/. Follow the deep-research skill methodology completely. Register this task in ~/.claude/research-tasks.json with UUID ${UUID8}." --max-turns 50 --output-format stream-json 2>&1 | tee /tmp/research-${UUID8}.log
+claude -p "You are running a deep research task. Topic: ${TOPIC}. Save all output to ${OUTPUT_DIR}/. Follow the deep-research skill methodology completely. Register this task in ~/.claude/research-tasks.json with UUID ${UUID8}." --max-turns 50 --dangerously-skip-permissions --output-format stream-json 2>&1 | tee /tmp/research-${UUID8}.log
 ```
 
 **How it works:**
@@ -134,6 +134,9 @@ claude -p "You are running a deep research task. Topic: ${TOPIC}. Save all outpu
 3. It loads the deep-research skill from `~/.claude/skills/deep-research/`
 4. Results are written to a unique directory (UUID-tagged)
 5. When the process exits, the background subagent returns, notifying the main session
+
+**Requirements:**
+- `--dangerously-skip-permissions` is required — non-interactive mode has no human to approve tool calls
 
 **Limitations:**
 - Separate API session (no shared context with main chat)
