@@ -106,6 +106,7 @@ Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`
 3. Define scope boundaries (what's in/out)
 4. Establish success criteria
 5. List key assumptions to validate
+6. Classify topic time domain for temporal credibility decay (see Source Preference Heuristics). For multi-domain topics, assign per sub-question: e.g., "regulatory aspect = Legal/5yr, tooling aspect = Tech/90d"
 
 **Extended Thinking Task:** Before committing to scope, think through 3 alternative framings of the research question. Consider: Is the question too broad? Too narrow? Is there a more precise version that would yield more actionable results? Choose the framing that best serves the user's likely intent.
 
@@ -172,7 +173,7 @@ Source freshness matters differently depending on the topic domain. Apply domain
 
 **How to apply:** Sources past 2 half-lives from today should be deprioritized unless they are foundational/seminal works. When two sources conflict and one is significantly more recent in a fast-moving domain, favor the newer source (note this in contradiction resolution).
 
-**Determine the domain at SCOPE time** and apply the appropriate half-life throughout retrieval and triangulation.
+**Determine the domain at SCOPE time** (Activity 6) and apply the appropriate half-life throughout retrieval and triangulation. For research spanning multiple domains, assign the half-life per sub-question or section rather than a single global value.
 
 This heuristic applies to both the main agent's search evaluation and to sub-agent prompts. Include this guidance in sub-agent prompts.
 
@@ -394,7 +395,7 @@ When sources disagree on a claim, do NOT simply flag "sources disagree" and move
 
 1. **Identify the specific claim** where sources disagree
 2. **Compare source authority** — use credibility scores to weight which source is more trustworthy
-3. **Check recency** — more recent data may supersede older claims (especially for technology, pricing, regulatory topics)
+3. **Check recency** — apply the temporal credibility decay half-life (see Source Preference Heuristics) to determine whether the age difference is material. A source within 1 half-life is still current; beyond 2 half-lives, favor the newer source
 4. **Seek a tiebreaker** — look for a third independent source that confirms one position
 5. **Present the resolution in the report** with explicit reasoning:
    > "Source A claims X [1], while Source B claims Y [2]. Based on [Source A's higher authority / more recent data / third source C confirming X], X appears more accurate because [specific reasoning]."
