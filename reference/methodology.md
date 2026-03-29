@@ -158,6 +158,22 @@ Update progress after results arrive: `[Phase RETRIEVE] X/Y sources gathered, av
 - Undated content with no author attribution
 - Paraphrased/rewritten versions of primary sources (find the original instead)
 
+**Temporal Credibility Decay:**
+Source freshness matters differently depending on the topic domain. Apply domain-appropriate recency weighting:
+
+| Domain | Half-life | Meaning |
+|--------|-----------|---------|
+| Breaking news / trending | 7 days | A 2-week-old news article is stale |
+| Technology / software | 90 days | A 6-month-old tech review is outdated |
+| Business / market data | 180 days | A 1-year-old market report is unreliable |
+| Science / academic | 365 days | A 2-year-old paper is still relevant |
+| Legal / regulatory | 5 years | A 3-year-old regulation is likely current |
+| Historical / reference | No decay | A 10-year-old history source is fine |
+
+**How to apply:** Sources past 2 half-lives from today should be deprioritized unless they are foundational/seminal works. When two sources conflict and one is significantly more recent in a fast-moving domain, favor the newer source (note this in contradiction resolution).
+
+**Determine the domain at SCOPE time** and apply the appropriate half-life throughout retrieval and triangulation.
+
 This heuristic applies to both the main agent's search evaluation and to sub-agent prompts. Include this guidance in sub-agent prompts.
 
 ### Query Decomposition Strategy
