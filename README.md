@@ -83,7 +83,7 @@ Reports >18K words auto-continue via recursive agent spawning with context prese
 deep-research/
 ├── SKILL.md                          # Skill entry point (lean, ~100 lines)
 ├── reference/
-│   ├── methodology.md                # 8-phase pipeline details
+│   ├── methodology.md                # 10-phase pipeline details
 │   ├── report-assembly.md            # Progressive generation strategy
 │   ├── quality-gates.md              # Validation standards
 │   ├── html-generation.md            # McKinsey HTML conversion
