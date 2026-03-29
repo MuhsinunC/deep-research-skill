@@ -110,35 +110,75 @@ Mode Selection
 
 ---
 
-## Background Mode (Non-Blocking)
+## Background Mode (Default)
 
-To run deep research without blocking the main chat, spawn it as a background Claude Code instance:
+Deep research ALWAYS runs in the background via a spawned Claude Code instance, keeping the main chat free. The main thread's job is to prepare a self-contained Research Brief, then spawn.
 
-**Step 1: Generate UUID and set up variables:**
+### Step 1: Prepare the Research Brief
+
+**Before spawning, the main thread MUST resolve all conversation context into a self-contained brief.** The spawned instance has NO access to the current conversation — it only knows what's in the prompt.
+
+**Context Resolution Rules:**
+- Replace ALL pronouns and references: "this", "the above", "what we discussed", "the approach from earlier" → explicit descriptions
+- Include relevant prior findings: if the conversation produced data, decisions, or constraints that affect the research, state them explicitly
+- If the user's request is vague ("look into databases"), ask ONE clarifying question before spawning — don't spawn with an ambiguous topic
+
+**Research Brief Template:**
+```
+RESEARCH BRIEF
+==============
+TOPIC: [Fully resolved topic description — no pronouns, no references to conversation context]
+
+QUESTIONS TO ANSWER:
+1. [Specific question — not "look into it" but "what are the tradeoffs between X and Y?"]
+2. [Additional specific questions]
+
+PRIOR CONTEXT (if any):
+- [Any findings, decisions, or constraints from the current conversation that the research should account for]
+- [e.g., "We've already ruled out PostgreSQL due to write throughput requirements"]
+- [e.g., "The user has 82% discount on Claude API and no budget for external APIs"]
+- [Omit this section entirely if the research is standalone with no prior context]
+
+SCOPE:
+- IN: [What to cover]
+- OUT: [What to exclude]
+- PRIORITY: [What matters most — accuracy, breadth, specific domain focus]
+
+MODE: [quick/standard/deep/ultradeep]
+```
+
+### Step 2: Generate UUID and Spawn
+
 ```bash
 UUID8=$(uuidgen | cut -c1-8)
 DATE=$(date +%Y%m%d)
-TOPIC_SLUG="Topic_Name_Here"  # clean, underscored
+TOPIC_SLUG="[Clean_Topic_Name]"
 OUTPUT_DIR=~/Documents/Research/${TOPIC_SLUG}_${DATE}_${UUID8}
 ```
 
-**Step 2: Spawn the background research instance:**
 ```
 Bash(run_in_background: true):
-claude -p "You are running a deep research task. Topic: ${TOPIC}. Save all output to ${OUTPUT_DIR}/. Follow the deep-research skill methodology completely. Register this task in ~/.claude/research-tasks.json with UUID ${UUID8}." --max-turns 50 --dangerously-skip-permissions --output-format stream-json 2>&1 | tee /tmp/research-${UUID8}.log
+claude -p "[PASTE RESEARCH BRIEF HERE]. Save all output to ${OUTPUT_DIR}/. Follow the deep-research skill methodology completely. Run all phases for the selected mode. Register this task in ~/.claude/research-tasks.json with UUID ${UUID8}." --max-turns 50 --dangerously-skip-permissions --output-format stream-json 2>&1 | tee /tmp/research-${UUID8}.log
 ```
 
-**How it works:**
-1. A background subagent runs the `claude -p` command via Bash
-2. The spawned Claude Code instance is a full session with its own sub-agent capabilities
-3. It loads the deep-research skill from `~/.claude/skills/deep-research/`
-4. Results are written to a unique directory (UUID-tagged)
-5. When the process exits, the background subagent returns, notifying the main session
+### How It Works
 
-**Requirements:**
+1. The main thread prepares a self-contained Research Brief (resolving all context)
+2. A background subagent runs the `claude -p` command via Bash
+3. The spawned Claude Code instance is a full session with its own sub-agent capabilities
+4. It loads the deep-research skill from `~/.claude/skills/deep-research/`
+5. Results are written to a unique UUID-tagged directory
+6. When the process exits, the background subagent returns, notifying the main session
+7. The main thread reads the output files and presents a summary to the user
+
+### Requirements
+
 - `--dangerously-skip-permissions` is required — non-interactive mode has no human to approve tool calls
+- The Research Brief MUST be self-contained — no references to "the current conversation"
+- If the user's request is ambiguous, ask for clarification BEFORE spawning (one question only)
 
-**Limitations:**
-- Separate API session (no shared context with main chat)
-- No cross-session prompt caching (irrelevant — research is independent)
-- Runs non-interactively (won't ask questions — uses Autonomy Principle)
+### Limitations
+
+- Separate API session (no shared context with main chat — this is why the Research Brief must be self-contained)
+- Runs non-interactively (won't ask questions mid-run — uses Autonomy Principle)
+- If the spawned instance encounters gaps, it documents them in the Limitations section of its report rather than asking for clarification
