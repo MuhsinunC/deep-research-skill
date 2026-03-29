@@ -112,7 +112,9 @@ Mode Selection
 
 ## Background Mode (Default)
 
-Deep research ALWAYS runs in the background via a spawned Claude Code instance, keeping the main chat free. The main thread's job is to prepare a self-contained Research Brief, then spawn.
+Deep research runs in the background by default via a spawned Claude Code instance, keeping the main chat free. The main thread's job is to prepare a self-contained Research Brief, then spawn.
+
+**Exception:** For quick mode (2-5 min) or when the user explicitly requests foreground execution, run inline instead — the overhead of spawning, UUID generation, and file-based output exceeds the research time for short tasks.
 
 ### Step 1: Prepare the Research Brief
 
@@ -121,7 +123,7 @@ Deep research ALWAYS runs in the background via a spawned Claude Code instance, 
 **Context Resolution Rules:**
 - Replace ALL pronouns and references: "this", "the above", "what we discussed", "the approach from earlier" → explicit descriptions
 - Include relevant prior findings: if the conversation produced data, decisions, or constraints that affect the research, state them explicitly
-- If the user's request is vague ("look into databases"), ask ONE clarifying question before spawning — don't spawn with an ambiguous topic
+- If the user's request is vague ("look into databases"), ask ONE clarifying question before spawning — don't spawn with an ambiguous topic. If the answer is still ambiguous, proceed with the most reasonable interpretation and note assumptions in the PRIOR CONTEXT section of the Research Brief
 
 **Research Brief Template:**
 ```
@@ -145,6 +147,10 @@ SCOPE:
 - PRIORITY: [What matters most — accuracy, breadth, specific domain focus]
 
 MODE: [quick/standard/deep/ultradeep]
+
+OUTPUT FORMAT (optional):
+- [Default: Markdown + HTML + PDF]
+- [Override if user requested specific formats, e.g., "markdown only, no HTML"]
 ```
 
 ### Step 2: Generate UUID and Spawn
@@ -156,9 +162,22 @@ TOPIC_SLUG="[Clean_Topic_Name]"
 OUTPUT_DIR=~/Documents/Research/${TOPIC_SLUG}_${DATE}_${UUID8}
 ```
 
+First, write the Research Brief to a temp file (avoids shell quoting issues with multi-line content):
+
+```bash
+cat > /tmp/research-brief-${UUID8}.txt << 'BRIEF'
+[Paste the completed Research Brief template here]
+
+Save all output to [OUTPUT_DIR]. Follow the deep-research skill methodology completely.
+Run all phases for the selected mode.
+Register this task in ~/.claude/research-tasks.json with UUID [UUID8].
+BRIEF
+```
+
+Then spawn:
 ```
 Bash(run_in_background: true):
-claude -p "[PASTE RESEARCH BRIEF HERE]. Save all output to ${OUTPUT_DIR}/. Follow the deep-research skill methodology completely. Run all phases for the selected mode. Register this task in ~/.claude/research-tasks.json with UUID ${UUID8}." --max-turns 50 --dangerously-skip-permissions --output-format stream-json 2>&1 | tee /tmp/research-${UUID8}.log
+claude -p "$(cat /tmp/research-brief-${UUID8}.txt)" --max-turns 50 --dangerously-skip-permissions --output-format stream-json 2>&1 | tee /tmp/research-${UUID8}.log
 ```
 
 ### How It Works
