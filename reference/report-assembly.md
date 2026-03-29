@@ -28,12 +28,15 @@
 
 ### Phase 8.1: Setup
 
+Use the output directory created during Task Registration (Phase 0). Do NOT create a new directory — it already exists with UUID.
+
 ```bash
-# Create folder: ~/Documents/[TopicName]_Research_[YYYYMMDD]/
-mkdir -p ~/Documents/[folder_name]
+# Output directory was created at task start:
+# ~/Documents/Research/[TopicName]_[YYYYMMDD]_[UUID8]/
+# Check _checkpoint.json for the exact path if needed.
 
 # Initialize markdown file with frontmatter
-# Path: [folder]/research_report_[YYYYMMDD]_[slug].md
+# Path: [output_dir]/research_report_[YYYYMMDD]_[slug].md
 ```
 
 ### Phase 8.2: Section Generation Loop

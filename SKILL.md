@@ -1,6 +1,6 @@
 ---
 name: deep-research
-description: Deep research and analysis expert. ALWAYS invoke this skill when the user asks for deep research, comprehensive analysis, research reports, multi-source investigation, or state-of-the-art reviews. Do not attempt research reports or multi-source analysis directly -- use this skill first. NOT for simple lookups, debugging, or 1-2 search questions.
+description: Deep research expert. ALWAYS invoke for deep research, research reports, comprehensive analysis, or multi-source investigation. Do not attempt research directly -- use this skill first. NOT for simple lookups or debugging.
 ---
 
 # Deep Research
@@ -114,9 +114,18 @@ Mode Selection
 
 To run deep research without blocking the main chat, spawn it as a background Claude Code instance:
 
+**Step 1: Generate UUID and set up variables:**
+```bash
+UUID8=$(uuidgen | cut -c1-8)
+DATE=$(date +%Y%m%d)
+TOPIC_SLUG="Topic_Name_Here"  # clean, underscored
+OUTPUT_DIR=~/Documents/Research/${TOPIC_SLUG}_${DATE}_${UUID8}
+```
+
+**Step 2: Spawn the background research instance:**
 ```
 Bash(run_in_background: true):
-claude -p "You are running a deep research task. Topic: [TOPIC]. Save all output to ~/Documents/Research/[Topic]_[DATE]_[UUID8]/. Follow the deep-research skill methodology completely. Register this task in ~/.claude/research-tasks.json with UUID [UUID8]." --max-turns 50 --output-format stream-json 2>&1 | tee /tmp/research-[UUID8].log
+claude -p "You are running a deep research task. Topic: ${TOPIC}. Save all output to ${OUTPUT_DIR}/. Follow the deep-research skill methodology completely. Register this task in ~/.claude/research-tasks.json with UUID ${UUID8}." --max-turns 50 --output-format stream-json 2>&1 | tee /tmp/research-${UUID8}.log
 ```
 
 **How it works:**
@@ -125,8 +134,6 @@ claude -p "You are running a deep research task. Topic: [TOPIC]. Save all output
 3. It loads the deep-research skill from `~/.claude/skills/deep-research/`
 4. Results are written to a unique directory (UUID-tagged)
 5. When the process exits, the background subagent returns, notifying the main session
-
-**Generate the UUID before spawning:** `UUID8=$(uuidgen | cut -c1-8)`
 
 **Limitations:**
 - Separate API session (no shared context with main chat)
