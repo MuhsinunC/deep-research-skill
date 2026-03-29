@@ -92,9 +92,10 @@ Update sources.json after each section. This survives context compaction and ena
 
 ## File Organization
 
-**1. Create dedicated folder:**
-- Location: `~/Documents/[TopicName]_Research_[YYYYMMDD]/`
+**1. Use the output directory created during Task Registration:**
+- Location: `~/Documents/Research/[TopicName]_[YYYYMMDD]_[UUID8]/`
 - Clean topic name (remove special chars, use underscores)
+- UUID8 was generated at task start — check `_checkpoint.json` for the path
 
 **2. File naming convention:**
 All files use same base name:

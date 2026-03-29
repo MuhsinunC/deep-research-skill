@@ -41,6 +41,37 @@ This applies to every phase. It is not optional.
 
 ---
 
+## Task Registration and Output Directory
+
+**Before starting Phase 1**, generate a unique task ID and create the output directory:
+
+```bash
+UUID8=$(uuidgen | cut -c1-8)
+DATE=$(date +%Y%m%d)
+OUTPUT_DIR=~/Documents/Research/[Topic_Slug]_${DATE}_${UUID8}
+mkdir -p "$OUTPUT_DIR"
+```
+
+**Register the task** in `~/.claude/research-tasks.json` (create if doesn't exist):
+```json
+{
+  "tasks": [
+    {
+      "uuid": "a7f3b2c1",
+      "topic": "Cat Genomes Research",
+      "status": "in_progress",
+      "output_dir": "~/Documents/Research/Cat_Genomes_20260323_a7f3b2c1/",
+      "start_time": "2026-03-23T16:00:00Z",
+      "mode": "standard"
+    }
+  ]
+}
+```
+
+Update the task status to `"completed"` in Phase 8 (PACKAGE) after the report is written.
+
+---
+
 ## Checkpoint/Resume Protocol
 
 **At the end of each phase, save a checkpoint file** to the research output directory as `_checkpoint.json`:

@@ -1,6 +1,6 @@
 ---
 name: deep-research
-description: Conducts enterprise-grade research with multi-source synthesis, citation tracking, and verification. Produces citation-backed reports through a structured pipeline with source credibility scoring. Triggers on "deep research", "comprehensive analysis", "research report", "compare X vs Y", "analyze trends", or "state of the art". Not for simple lookups, debugging, or questions answerable with 1-2 searches.
+description: Deep research and analysis expert. ALWAYS invoke this skill when the user asks for deep research, comprehensive analysis, research reports, multi-source investigation, or state-of-the-art reviews. Do not attempt research reports or multi-source analysis directly -- use this skill first. NOT for simple lookups, debugging, or 1-2 search questions.
 ---
 
 # Deep Research
@@ -87,7 +87,9 @@ Mode Selection
 - Bibliography (COMPLETE - every citation, no placeholders)
 - Methodology Appendix
 
-**Output files (all to `~/Documents/[Topic]_Research_[YYYYMMDD]/`):**
+**Output files (all to `~/Documents/Research/[Topic]_[YYYYMMDD]_[UUID8]/`):**
+- UUID8 = first 8 characters of a UUID, generated at task start via `uuidgen | cut -c1-8`
+- Registered in `~/.claude/research-tasks.json` with: uuid, topic, status, output_dir, start_time
 - Markdown (primary source)
 - HTML (McKinsey style, auto-opened)
 - PDF (professional print, auto-opened)
@@ -105,3 +107,28 @@ Mode Selection
 **Use:** Comprehensive analysis, technology comparisons, state-of-the-art reviews, multi-perspective investigation, market analysis.
 
 **Do NOT use:** Simple lookups, debugging, 1-2 search answers, quick time-sensitive queries.
+
+---
+
+## Background Mode (Non-Blocking)
+
+To run deep research without blocking the main chat, spawn it as a background Claude Code instance:
+
+```
+Bash(run_in_background: true):
+claude -p "You are running a deep research task. Topic: [TOPIC]. Save all output to ~/Documents/Research/[Topic]_[DATE]_[UUID8]/. Follow the deep-research skill methodology completely. Register this task in ~/.claude/research-tasks.json with UUID [UUID8]." --max-turns 50 --output-format stream-json 2>&1 | tee /tmp/research-[UUID8].log
+```
+
+**How it works:**
+1. A background subagent runs the `claude -p` command via Bash
+2. The spawned Claude Code instance is a full session with its own sub-agent capabilities
+3. It loads the deep-research skill from `~/.claude/skills/deep-research/`
+4. Results are written to a unique directory (UUID-tagged)
+5. When the process exits, the background subagent returns, notifying the main session
+
+**Generate the UUID before spawning:** `UUID8=$(uuidgen | cut -c1-8)`
+
+**Limitations:**
+- Separate API session (no shared context with main chat)
+- No cross-session prompt caching (irrelevant — research is independent)
+- Runs non-interactively (won't ask questions — uses Autonomy Principle)
