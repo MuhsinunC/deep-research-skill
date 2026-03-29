@@ -16,11 +16,11 @@ This does NOT replace the dedicated TRIANGULATE and VERIFY phases. It supplement
 
 ## High-Confidence Hallucination Vigilance
 
-LLMs exhibit an effect analogous to Dunning-Kruger: they are MOST confident about claims that are MOST likely to be hallucinated. Specific, detailed, authoritative-sounding claims (exact numbers, precise dates, named entities, causal mechanisms) are higher hallucination risk than vague or hedged claims. The model can fluently reproduce the *pattern* of confidence without having verified the *content*.
+LLMs produce their most confident-sounding output on claims that are most likely to be hallucinated — a calibration inversion where surface fluency masks factual unreliability. Specific, detailed, authoritative-sounding claims (exact numbers, precise dates, named entities, causal mechanisms) are higher hallucination risk than vague or hedged claims. The model can fluently reproduce the *pattern* of confidence without having verified the *content*.
 
 **Counter-intuitive rule: Be MORE skeptical of claims you're most confident about.**
 
-**High-risk claim categories (in descending risk order):**
+**High-risk claim categories (ranked by severity-if-wrong, in descending order):**
 1. **Causal claims** ("X causes Y because Z") — verify the causal mechanism, not just the correlation
 2. **Precise quantitative claims** ("costs $Y/month," "achieves 94.3% accuracy") — require source verification even if they feel "obviously correct"
 3. **Named-entity relationships** ("Company X acquired Company Y in 2024") — verify the specific relationship, not just that both entities exist
@@ -32,6 +32,7 @@ LLMs exhibit an effect analogous to Dunning-Kruger: they are MOST confident abou
 - **TRIANGULATE:** Give extra verification attention to claims where confidence is highest — these are the claims most likely to have subtle errors that pass unnoticed.
 - **SYNTHESIZE:** When screening claims, flag any that feel "obviously true" for additional scrutiny. Obvious-feeling claims are where hallucination hides.
 - **VERIFY:** Prioritize high-confidence claims for tool-grounded verification — they are the most dangerous if wrong because readers won't question them either.
+- **PACKAGE:** When writing report prose, verify that confidence language ("research shows," "clearly," "demonstrates") is warranted by the evidence status from VERIFY. Do not upgrade hedged or single-source findings to definitive claims during report writing.
 
 This principle augments the Inline Verification Principle above by targeting verification effort where it is most needed — on claims where confidence is highest and verification instinct is weakest.
 
@@ -49,7 +50,7 @@ This selective rollback approach prevents the sunk-cost fallacy of continuing re
 
 ## Metacognitive Cycling Protocol (Think2)
 
-Academic research on LLM self-correction shows that unstructured "think step-by-step" prompting underperforms structured metacognitive cycling — Think2 (arXiv 2602.18806) achieved a ~3x improvement in successful self-correction rate on 8B-parameter models (Llama-3, Qwen-3) by structuring reasoning into Planning, Monitoring, and Evaluation layers. The Think2 approach structures each phase's reasoning into three layers:
+Academic research on LLM self-correction shows that unstructured "think step-by-step" prompting underperforms structured metacognitive cycling. Studies on 8B-parameter models (Llama-3, Qwen-3) found ~3x improvement in successful self-correction rate when reasoning is structured into Planning, Monitoring, and Evaluation layers rather than freeform chain-of-thought. The Think2 approach structures each phase's reasoning into three layers:
 
 **Before executing a phase (PLAN):**
 - What is the specific goal of this phase?
@@ -70,7 +71,7 @@ Academic research on LLM self-correction shows that unstructured "think step-by-
 
 This is NOT additional time — it's structuring the thinking that already happens into a more effective pattern. The EVALUATE step's output feeds directly into the next phase's PLAN step, creating a continuous improvement loop across the pipeline.
 
-**Note on MONITOR:** Unlike PLAN and EVALUATE (which have explicit checkpoints), MONITOR operates continuously during execution. It is intentionally left generic — check against phase goals and predicted failure modes whenever you complete a sub-step. The most valuable MONITOR points are: during RETRIEVE when collecting parallel results, and during SYNTHESIZE when building arguments from screened claims.
+**Note on MONITOR:** Unlike PLAN and EVALUATE (which have explicit checkpoints), MONITOR operates continuously during execution. Check against phase goals and predicted failure modes whenever you complete a sub-step. The most valuable MONITOR points are: during RETRIEVE when collecting parallel results (are sub-agents producing output?), during TRIANGULATE when resolving contradictions (am I anchoring on the first source?), during SYNTHESIZE when building arguments (am I extrapolating beyond the evidence?), during REFINE when applying fixes (is this fix introducing new inconsistencies?), and during VERIFY when processing sub-agent results (is confirmation bias affecting my interpretation?).
 
 ---
 
@@ -178,7 +179,7 @@ Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`
 5. Estimate time/effort per phase
 6. Define quality gates
 
-**Extended Thinking Task (Think2 PLAN step):** Branch into multiple potential research paths — consider which paths are most likely to yield actionable evidence and which are dead ends. Converge on the optimal strategy before proceeding. Predict: which query formulations are most likely to fail? Which source types will be hardest to find?
+**Extended Thinking Task (Think2 PLAN step):** Review any flagged concerns from SCOPE's evaluation. Then branch into multiple potential research paths — consider which paths are most likely to yield actionable evidence and which are dead ends. Converge on the optimal strategy before proceeding. Predict: which query formulations are most likely to fail? Which source types will be hardest to find?
 
 **Think2 EVALUATE (after activities):** Does the plan cover all sub-questions from SCOPE? Count: how many search angles were identified? Are there any single-source dependencies in the plan? Flag gaps for RETRIEVE.
 
@@ -192,6 +193,8 @@ Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`
 
 **Progress:** `[Phase RETRIEVE] Launching N parallel searches + M sub-agents...`
 Update progress after results arrive: `[Phase RETRIEVE] X/Y sources gathered, avg credibility Z/100...`
+
+**Extended Thinking Task (Think2 PLAN step):** Before launching searches, review the query decomposition strategy. Which search angles are highest priority? Which are most likely to return nothing (apply exhaustion criteria proactively)? Plan the sub-agent lens assignments. Predict: which sources will be hardest to access (paywalls, Cloudflare)? Which sub-topics have the highest risk of correlated results across agents?
 
 **CRITICAL: Execute ALL searches in parallel using a single message with multiple tool calls**
 
@@ -307,10 +310,14 @@ This prevents synthesis fatigue when merging results from 3-5 agents.
 | C | Critical/Adversarial | "[topic] problems," "failures," "criticism," "overhyped" | Limitations, failure modes, negative results |
 | D (optional) | Historical/Foundational | "[topic] history," "original paper," "seminal work" | Origin stories, foundational research, evolution of ideas |
 
+Agent D is recommended for topics with significant historical evolution (>5 years of development) or when SCOPE identifies foundational understanding as a prerequisite. For Deep/UltraDeep modes, include all 4 agents.
+
 **Include the assigned lens in each sub-agent's prompt.** Example:
 > "You are researching [topic] with a CRITICAL/ADVERSARIAL lens. Your job is specifically to find problems, limitations, failures, and criticisms. Do NOT focus on benefits or positive findings — other agents are covering that. Write findings to [OUTPUT_FILE]. After every search, write immediately."
 
 **Why this matters:** Like ensemble methods in ML, diversity of approach is what makes parallel agents valuable. If all agents search the same way, the ensemble has no advantage over a single agent. Heterogeneous assignment ensures that at least one agent is looking where the others aren't.
+
+**Relationship to Query Decomposition Strategy:** The query decomposition angles (above) guide the main agent's Step 1 parallel searches for broad coverage. The lens assignments guide Step 2 sub-agents for sustained deep investigation. There is intentional overlap — sub-agents deepen the angles that benefit from multi-step research, while Step 1 searches provide breadth.
 
 **Example parallel execution (using WebSearch):**
 ```
@@ -325,7 +332,7 @@ This prevents synthesis fatigue when merging results from 3-5 agents.
 - Task(subagent_type="general-purpose", description="Critical analysis", prompt="LENS: CRITICAL/ADVERSARIAL. Find problems, limitations, failures, and criticisms of quantum computing. Search for 'quantum computing problems', 'overhyped', 'limitations'. Do NOT focus on benefits. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
 ```
 
-**NOTE:** All sub-agent prompts MUST include: (1) write-after-search protocol, (2) output file path, (3) source preference heuristics, (4) assigned research lens (see Heterogeneous Tool Assignment). The examples above show the minimum required additions.
+**NOTE:** All Phase 3 retrieval sub-agent prompts MUST include: (1) write-after-search protocol, (2) output file path, (3) source preference heuristics, (4) assigned research lens (see Heterogeneous Tool Assignment). The examples above show the minimum required additions. Phase 6 gap-filling sub-agents and Phase 7.5 verification sub-agents have different requirements — see those phases for their specific prompt instructions.
 
 **Example parallel execution (using Exa MCP - if available):**
 ```
@@ -335,8 +342,8 @@ This prevents synthesis fatigue when merging results from 3-5 agents.
 - mcp__Exa__exa_search(query="quantum computing commercial", type="auto", num_results=10, start_published_date="[use current year from Step 0]")
 - mcp__Exa__exa_search(query="quantum error correction", type="neural", num_results=10, include_domains=["arxiv.org"])
 - Task(subagent_type="general-purpose", description="Academic deep dive", prompt="LENS: ACADEMIC/FORMAL. Deep dive into quantum computing academic papers. Use technical jargon, author names, DOI searches. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
-- Task(subagent_type="general-purpose", description="Practitioner analysis", prompt="LENS: PRACTITIONER/APPLIED. Analyze quantum computing real-world implementations. Use practical terms, case studies. Write findings to [OUTPUT_FILE]. After every search, write immediately.")
-- Task(subagent_type="general-purpose", description="Critical analysis", prompt="LENS: CRITICAL/ADVERSARIAL. Find problems, limitations, failures of quantum computing. Do NOT focus on benefits. Write findings to [OUTPUT_FILE]. After every search, write immediately.")
+- Task(subagent_type="general-purpose", description="Practitioner analysis", prompt="LENS: PRACTITIONER/APPLIED. Analyze quantum computing real-world implementations, industry reports, case studies, and market data. Use practical terms, framework names. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", description="Critical analysis", prompt="LENS: CRITICAL/ADVERSARIAL. Find problems, limitations, failures, and criticisms of quantum computing. Do NOT focus on benefits. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
 ```
 
 **Step 3: Collect and organize results**
@@ -465,7 +472,7 @@ The FFS (First Finish Search) pattern above applies only to the initial parallel
 
 **Progress:** `[Phase TRIANGULATE] Cross-referencing X sources, Y claims to verify...`
 
-**Extended Thinking Task (Think2 PLAN step):** Before checking sources, think through which claims are most likely to have conflicting evidence. What are the controversial or rapidly-evolving aspects of this topic? Focus verification effort there.
+**Extended Thinking Task (Think2 PLAN step):** Review RETRIEVE's evaluation for coverage gaps and flagged issues. Then think through which claims are most likely to have conflicting evidence. What are the controversial or rapidly-evolving aspects of this topic? Focus verification effort there.
 
 **Activities:**
 1. Identify claims requiring verification
@@ -799,7 +806,9 @@ Verification sub-agents must receive ONLY the claims and their cited source URLs
 - Other claims (each batch should be verifiable without knowing what else the report says)
 - The research question or scope (the verifier doesn't need to know the report's thesis)
 
-**Batch composition note:** When distributing claims across sub-agents, avoid grouping claims from the same report section together. A batch of closely related claims may allow the verifier to infer the report's thesis, partially undermining the asymmetry. Distribute claims across sections when possible.
+**Limitation: claim text as implicit context.** Claim text inherently reveals partial context about the report's subject matter. The asymmetry protocol reduces but does not eliminate confirmation bias. To maximize the effect: (1) strip hedging language and evaluative framing from claims before sending (convert "our analysis shows X is significantly better than Y" to "X outperforms Y by N%"), and (2) accept that the protocol provides partial blinding, not full blinding — it prevents the verifier from knowing the report's overall narrative arc and conclusions, even though the topic domain will be apparent. If a claim contains a contextualizing preamble (e.g., "In the context of X, ..."), include it as-is — stripping it would change the claim's meaning and make verification meaningless.
+
+**Batch composition:** When distributing claims across sub-agents, apply two shuffling rules: (1) no batch should contain more than 2 claims from the same report section, and (2) mix claim types (quantitative, causal, comparative) across batches rather than concentrating them. If the claim count and agent count make perfect distribution impossible, prioritize rule 1 over rule 2.
 
 **Prompt for each verification sub-agent:**
 > "You are a claim verification agent. You have NO context about what report these claims come from or what conclusions the report reaches. Your ONLY job is to check whether each cited source actually supports the claim.
@@ -817,10 +826,12 @@ Verification sub-agents must receive ONLY the claims and their cited source URLs
 > Citation: [N]
 > Source: [URL]
 > Status: VERIFIED/QUESTIONABLE/UNVERIFIABLE/CONTRADICTED
-> Evidence: [quote or summary from the actual source content]
+> Evidence: [direct quote from the source, in quotation marks, with the surrounding sentence for context. Do NOT paraphrase — copy the exact text that supports or contradicts the claim.]
 > ---"
 
 Sub-agents follow the same reliability protocols: write-after-search, designated output file paths.
+
+**Note on Phase 3 sub-agent requirements:** Verification sub-agents do not require a research lens (item 4 from Phase 3's NOTE) since they verify specific URLs rather than conducting open research. Source preference heuristics (item 3) apply only if a cited URL is inaccessible and the verifier must find an alternative source — in that case, follow the Source Preference Heuristics from Phase 3 and the Blocked Site Handling protocol.
 
 ### Step 3: Process Verification Results
 
