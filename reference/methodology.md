@@ -403,15 +403,31 @@ When presenting contradictions in the report, always present the STRONGEST versi
 **3. Recency Awareness:**
 Early search results are not inherently more accurate. Explicitly check whether later-discovered sources contain more recent data that supersedes earlier findings. Do not let the first source set an anchor that later sources merely confirm.
 
+### Source Independence Detection
+
+Before accepting that a claim has "3+ independent sources," verify the sources are actually independent — not all citing the same original. This prevents circular citation from inflating confidence.
+
+**For each major claim with 3+ sources, check:**
+1. **Do the sources cite each other?** If Source B explicitly references Source A, they are not independent — Source B is an echo of Source A.
+2. **Do they trace to the same original?** If three blog posts all summarize the same research paper, that's 1 source with 3 echoes, not 3 independent sources. Look for the original and cite it instead.
+3. **Are they from the same organization/author?** Multiple publications from the same research group on the same topic count as 1 perspective, not independent confirmation.
+
+**Independence scoring:**
+- 3+ truly independent sources → **HIGH confidence** (proceed normally)
+- 1 original + multiple echoes → **MEDIUM confidence** (label as "widely reported but single-origin" in the report)
+- 1 source only, no echoes → **LOW confidence** (label as "single-source, unverified" in the report)
+
+**When independence is unclear:** Check the publication dates. If multiple sources appeared within days of each other on the same claim, they likely trace to a common press release or original report. Find the original.
+
 **Quality Standards:**
-- Core claims must have 3+ independent sources
-- Flag any single-source information
+- Core claims must have 3+ **independent** sources (per independence check above)
+- Flag any single-source or single-origin information
 - Note recency of information
 - Identify potential biases
 - Every contradiction must be resolved or labeled "contested" — no silent disagreements
 - Devil's advocate searches must be performed — no exceptions
 
-**Output:** Verified fact base with confidence levels, resolved contradictions, and devil's advocate search results. Save checkpoint.
+**Output:** Verified fact base with confidence levels, independence assessments, resolved contradictions, and devil's advocate search results. Save checkpoint.
 
 ---
 
