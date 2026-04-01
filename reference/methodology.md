@@ -764,7 +764,7 @@ This is more powerful than the original "return to Phase 3" approach because tar
 
 **Progress:** `[Phase VERIFY] Decomposing report into claims and verifying against sources...`
 
-**Extended Thinking Task (Think2 PLAN step):** Before decomposing, think through which claims in the report are highest-risk for inaccuracy. Quantitative claims, causal claims, and claims that surprised you during research are the most likely to be wrong. Prioritize verifying those. Also: which claims are highest-risk for supersession based on domain half-life and source age? Plan supersession search budget allocation — spend on the most critical claims first.
+**Extended Thinking Task (Think2 PLAN step):** Before decomposing, think through which claims in the report are highest-risk for inaccuracy. Quantitative claims, causal claims, and claims that surprised you during research are the most likely to be wrong. Prioritize verifying those. Also: which claims are highest-risk for supersession based on domain half-life and source age? Plan supersession search budget allocation — spend on the most critical claims first. If verification persistently fails, which claims are the weakest and what information would the Retry Brief need to convey about them? (Query formulation is the subprocess's job — focus on characterizing the failures.)
 
 **When to Execute:** Deep and UltraDeep modes only (Quick and Standard skip this).
 
@@ -901,11 +901,125 @@ Evidence: [what changed — brief summary of the superseding information]
 - **3+ OUTDATED:** Return to Phase 7 (REFINE) to update the outdated claims with current data (OUTDATED is less severe than SUPERSEDED — individual outdated claims are noted as limitations rather than triggering rework)
 - **Fewer than 3 OUTDATED and zero SUPERSEDED:** Proceed to Think2 EVALUATE → Phase 8 (PACKAGE)
 
-**Maximum 2 loop-back cycles (global budget, shared with Step 3):** A single counter tracks total VERIFY → REFINE round-trips regardless of whether Step 3 or Step 5 triggered the loop-back. If the budget is exhausted, proceed to PACKAGE and document all QUESTIONABLE/UNVERIFIABLE/CONTRADICTED/SUPERSEDED/OUTDATED claims in the Limitations section with appropriate notes (e.g., "This claim may be outdated — [newer source and reason]").
+**Maximum 2 loop-back cycles (global budget, shared with Step 3):** A single counter tracks total VERIFY → REFINE round-trips regardless of whether Step 3 or Step 5 triggered the loop-back. If the budget is exhausted, check whether Step 6 (Verifier-Guided Retry) should trigger before proceeding to PACKAGE.
 
-**Think2 EVALUATE (after activities):** Count: how many claims VERIFIED vs. QUESTIONABLE vs. CONTRADICTED vs. UNVERIFIABLE? How many claims were checked for supersession? How many were SUPERSEDED/OUTDATED? Did the supersession budget allocation target the right claims? Is the pass rate acceptable, or does the report need another REFINE cycle? What should PACKAGE emphasize in the methodology appendix?
+### Step 6: Verifier-Guided Retry (conditional — Deep/UltraDeep only, one-shot)
 
-**Output:** Verification results file with per-claim status and evidence. Save checkpoint.
+**Objective:** When the loop-back budget is exhausted and persistent verification failures remain, spawn a fresh subprocess with isolated context to generate an independent second candidate, then merge the best evidence from both. Inspired by Marco DeepResearch (arXiv 2603.28376), which showed +12.1 average improvement from verification-guided retry with genuine context isolation.
+
+**Trigger gate (ALL conditions must be met):**
+1. Deep or UltraDeep mode
+2. The 2-cycle loop-back budget is exhausted
+3. Persistent failures remain in the MOST RECENT VERIFY pass (the one that exhausted the budget, not cumulative counts across all cycles): ≥2 CONTRADICTED (from Step 3), OR ≥3 QUESTIONABLE (from Step 3), OR ≥2 SUPERSEDED (from Step 5). Count each status type independently from its originating step.
+
+If ANY condition is not met, proceed to PACKAGE and document remaining issues in Limitations (existing behavior).
+
+**Key architectural principle:** Genuine context isolation requires spawning a NEW process. Instructing a Claude instance to "ignore prior context" within the same context window does not work — the model will still be influenced by prior searches and reasoning, producing correlated errors. The retry MUST be a subprocess with its own fresh context.
+
+#### Phase 6A — Save Candidate A
+
+**Progress:** `[Phase VERIFY] Step 6 triggered — saving Candidate A and preparing retry...`
+
+1. Save the current report draft as `candidate_A.md` in the output directory
+2. Save Candidate A's full verification results (all claim statuses from Steps 2-5) as `candidate_A_verification.md`
+3. Record which claims failed and why (the specific CONTRADICTED/QUESTIONABLE/SUPERSEDED claims with their evidence)
+4. Save checkpoint: `"phase_completed": "VERIFY_RETRY_STARTED"` with `"candidate_a_path"` and `"candidate_a_verification_path"` fields, so a resumed session can detect a retry was in progress and locate Candidate A
+
+#### Phase 6B — Spawn Fresh Subprocess (Genuine Context Isolation)
+
+**Progress:** `[Phase VERIFY] Spawning retry subprocess with fresh context...`
+
+Prepare a Retry Brief (written to a temp file, then passed to `claude -p`):
+
+```
+RETRY BRIEF
+============
+ORIGINAL SCOPE: [paste the Phase 1 SCOPE output]
+ORIGINAL PLAN: [paste the Phase 2 PLAN output]
+OUTPUT DIRECTORY: [paste the actual resolved output directory path]
+TOPIC DOMAIN HALF-LIFE: [paste the half-life assigned in SCOPE Activity 6]
+
+SOURCE PREFERENCE HEURISTICS: Prioritize primary sources (official docs, research papers,
+government data) over aggregator sites, AI-generated content, and SEO listicles. See the
+Source Preference Heuristics in the deep-research methodology for the full priority order.
+
+TEMPORAL CREDIBILITY DECAY: Sources past 2 half-lives should be deprioritized unless they
+are foundational works. The topic domain half-life is stated above.
+
+FAILED CLAIMS FROM FIRST PASS:
+- Claim: [exact text] | Status: CONTRADICTED/QUESTIONABLE/SUPERSEDED | Reason: [brief]
+- [repeat for each failed claim]
+
+INSTRUCTIONS:
+You are generating Candidate B for a research topic that already has a Candidate A.
+Candidate A had persistent verification failures on the claims listed above.
+
+Run a compressed research pipeline (CRITIQUE and REFINE are omitted because Candidate B's
+claims will be merged into Candidate A's structure, which already went through the full
+CRITIQUE/REFINE cycle — do not attempt additional refinement passes):
+1. RETRIEVE: Use DIFFERENT query formulations than typical. Use the same heterogeneous
+   sub-agent lenses (Academic/Practitioner/Critical) but with different specific search
+   terms — correlated errors come from identical queries, not identical lenses. Pay
+   special attention to finding ALTERNATIVE sources for the failed claims listed above.
+2. TRIANGULATE: Cross-reference as normal, with special attention to the failed claims.
+3. OUTLINE REFINEMENT: Adapt the outline if new evidence warrants it.
+4. SYNTHESIZE: Synthesize normally.
+5. Lightweight VERIFY: Run Steps 1-3 only (claim decomposition + citation verification).
+   Skip Steps 4-6 to limit cost.
+
+Save report to ${OUTPUT_DIRECTORY}/candidate_B.md
+Save verification results to ${OUTPUT_DIRECTORY}/candidate_B_verification.md
+```
+
+**Spawn command:**
+```bash
+cat > /tmp/retry-brief-${UUID8}.txt << 'BRIEF'
+[Retry Brief content]
+BRIEF
+
+# --dangerously-skip-permissions: Required because the subprocess has no interactive
+# stdin (< /dev/null) and cannot prompt for tool permissions.
+# timeout 900: 15-minute wall-clock limit prevents runaway subprocesses.
+timeout 900 claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" --max-turns 40 \
+  --dangerously-skip-permissions < /dev/null 2>/tmp/retry-${UUID8}.err
+```
+
+**Failure detection:** After the subprocess exits, check:
+1. Non-zero exit code (crash, timeout, or `timeout` kill) → fall back to Candidate A
+2. `candidate_B.md` does not exist or is <500 words → empty/incomplete output → fall back
+3. `candidate_B_verification.md` does not exist → incomplete VERIFY → fall back
+
+If all three checks pass, proceed to Phase 6C. On any failure, proceed to PACKAGE with Candidate A and document persistent issues in Limitations. Do NOT attempt a second retry.
+
+#### Phase 6C — Joint Verify and Merge
+
+**Progress:** `[Phase VERIFY] Merging Candidate A and Candidate B...`
+
+Wait for the subprocess to complete. Read Candidate B and its verification results from disk.
+
+**Structure:** Use Candidate A's report structure as the skeleton (it went through the full pipeline including CRITIQUE/REFINE). Replace specific claims per the logic below, but keep A's section organization and heading hierarchy.
+
+**For each major claim, compare Candidate A and Candidate B:**
+- **Both agree (same conclusion, both verified):** High confidence — keep the better-evidenced version (stronger sources, more citations)
+- **A verified, B not present or failed:** Keep A's version
+- **B verified, A failed:** Replace with B's version and citation
+- **Both failed:** The claim is genuinely unsupported — remove from main analysis, document in Limitations
+- **A and B contradict each other:** Apply the Contradiction Resolution Protocol from Phase 4 (compare source authority, check recency, seek tiebreaker, present resolution with reasoning)
+- **B introduces a new finding with no counterpart in A:** If the finding is relevant to the original SCOPE and verified, add it as a new subsection or append to the most relevant existing section. Do not add more than 2 new subsections to avoid scope creep.
+
+**After claim-level merge:**
+1. Merge bibliographies: deduplicate sources, renumber citations to be sequential
+2. Consistency check: re-read the merged report and verify no section references a claim or citation that was removed/replaced during merge
+3. Regenerate the executive summary to accurately reflect the merged content
+4. If the merged report exceeds Candidate A's length by more than 20%, review for redundancy introduced by the merge — deduplicate overlapping evidence and prefer the more concise formulation when two versions are equivalent in evidence strength
+
+The merged report goes directly to Phase 8 (PACKAGE) — no additional full VERIFY cycles.
+
+**Cost:** Step 6 adds approximately 80-120% of the original research cost when triggered. For reports that pass verification normally (no persistent failures after 2 cycles), Step 6 adds ZERO cost. It is a one-shot retry — runs at most once per research task.
+
+**Think2 EVALUATE (after activities):** Count: how many claims VERIFIED vs. QUESTIONABLE vs. CONTRADICTED vs. UNVERIFIABLE? How many claims were checked for supersession? How many were SUPERSEDED/OUTDATED? Did the supersession budget allocation target the right claims? Was Step 6 triggered? If so, how many claims improved in Candidate B vs Candidate A? Did the merge produce a stronger report than either candidate alone? What should PACKAGE emphasize in the methodology appendix?
+
+**Output:** Verification results file with per-claim status and evidence. If Step 6 was triggered, also Candidate A, Candidate B, and merged report. Save checkpoint.
 
 ---
 
@@ -925,6 +1039,7 @@ Evidence: [what changed — brief summary of the superseding information]
 5. Compile full bibliography
 6. Add methodology appendix
 7. Include verification results summary (per-claim status from Phase 7.5 VERIFY) in the methodology appendix
+8. If Step 6 (Verifier-Guided Retry) was triggered, include a methodology note: "A verification-guided retry was performed. The final report merges the strongest evidence from two independent research passes." List which claims were replaced from Candidate B.
 
 **Think2 EVALUATE (after activities):** Does the report address every component of the original research question from SCOPE? Count: citations in text vs. bibliography entries — do they match? Are all VERIFY findings represented in the methodology appendix? Are supersession check results (SUPERSEDED/OUTDATED) documented alongside citation verification results? Is the executive summary accurate and not overstated relative to the evidence?
 
