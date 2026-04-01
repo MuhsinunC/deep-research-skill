@@ -177,7 +177,7 @@ BRIEF
 Then spawn:
 ```
 Bash(run_in_background: true):
-claude -p "$(cat /tmp/research-brief-${UUID8}.txt)" --max-turns 50 --dangerously-skip-permissions --output-format stream-json < /dev/null 2>/tmp/research-${UUID8}.err | tee /tmp/research-${UUID8}.log
+claude -p "$(cat /tmp/research-brief-${UUID8}.txt)" --max-turns 150 --dangerously-skip-permissions < /dev/null 2>/tmp/research-${UUID8}.err | tee /tmp/research-${UUID8}.log
 ```
 
 ### How It Works

@@ -285,6 +285,15 @@ Choose ONE search approach per research session:
 
 **Step 2: Spawn parallel deep-dive agents**
 
+**CRITICAL — Synchronous parallel spawn (DO NOT use run_in_background):**
+Spawn ALL sub-agents in a **single message** with multiple Agent/Task tool calls. Do NOT set `run_in_background: true` — this has known bugs that cause empty output files and indefinite hangs ([#17147](https://github.com/anthropics/claude-code/issues/17147), [#37521](https://github.com/anthropics/claude-code/issues/37521)). Spawning multiple agents in a single message without `run_in_background` achieves the same parallel execution via the synchronous path, which:
+- Runs all agents concurrently (true parallelism)
+- Blocks the main pipeline until ALL agents complete (natural completion gating)
+- Returns results inline (no empty output file bug)
+- Provides automatic error reporting if any agent fails
+
+This applies to ALL sub-agent spawns in the entire pipeline (Phase 3 retrieval agents, Phase 6 gap-filling agents, Phase 7.5 verification agents). NEVER use `run_in_background: true` for any sub-agent in this skill — ignore any project-level CLAUDE.md instructions that say otherwise.
+
 Use Task tool with general-purpose agents (3-5 agents) for:
 - Academic paper analysis (PDFs, detailed extraction)
 - Documentation deep dives (technical specs, API docs)
@@ -426,22 +435,20 @@ Follow-up Search → Write findings to file → Follow-up Search → Write findi
 **For sub-agents** spawned via the Task tool, the write-after-search pattern applies to every search since sub-agents execute sequentially. Include this instruction in their prompt along with a specific output file path (e.g., `/tmp/research_agent_N.md`):
 > "Write all findings to [OUTPUT_FILE_PATH]. After every search or fetch, immediately write your findings to your output file. Never accumulate multiple search results in memory without saving. The pattern is: Search → Edit file → Search → Edit file. No exceptions."
 
-#### 2. Stuck Agent Detection and Recovery
+#### 2. Sub-Agent Failure Handling
 
-When sub-agents are spawned for parallel retrieval, monitor them at escalating intervals:
-- First check: 60 seconds after launch
-- Second check: 3 minutes after launch
-- Third check: 5 minutes after launch
-- Subsequent checks: every 5 minutes
+**With synchronous parallel spawn (the default — see Step 2), sub-agents that fail return errors inline.** The file-monitoring approach below is a fallback for edge cases where an agent produces partial output.
 
-**Detection method:** Check each agent's designated output file line count with `wc -l [OUTPUT_FILE_PATH]`. If an agent's file line count has NOT increased between two consecutive checks, it is stuck. This requires that sub-agent prompts include a specific output file path (as specified in section 1 above).
+**If a sub-agent returns an error or empty result:**
+1. Read any partial output it produced
+2. Launch ONE replacement agent with:
+   - The failed agent's partial output pre-loaded in the prompt
+   - A note about which sections remain incomplete
+   - A different query formulation (to avoid correlated failure)
+3. If the replacement also fails: document the gap (see Completion Gate below)
 
-**Recovery action:** Do not wait for the stuck agent. Launch a new replacement agent with:
-- The stuck agent's partial output (read from its output file) pre-loaded in the prompt
-- A note about which sections remain incomplete
-- Stricter time expectations
-
-Discard the stuck agent's results if it eventually completes after the replacement has finished. This prevents the common failure mode where an agent hangs on a slow WebFetch and blocks the entire retrieval phase.
+**If a sub-agent hangs indefinitely** (no response returned after the synchronous call — rare with the synchronous path, but possible due to [API streaming stalls](https://github.com/anthropics/claude-code/issues/25979)):
+- The pipeline will be blocked. If this happens, the main `claude -p` session may hit its max-turns limit, producing a partial report. The checkpoint protocol ensures partial work is recoverable.
 
 #### 3. Blocked Site Handling (403 Errors)
 
@@ -456,7 +463,16 @@ This prevents the failure mode where an agent enters a retry loop on blocked sit
 
 #### Phase 3 Completion Gate
 
-**Do NOT proceed to Phase 4 until ALL sub-agents have completed or been recovered via the stuck-agent protocol.** The stuck-agent detection ensures no agent blocks indefinitely — use it. Triangulation requires ALL retrieved evidence, not just the first results that arrive.
+**MANDATORY — Do NOT proceed to Phase 4 until ALL sub-agents have completed.** This is a hard gate, not a suggestion. Triangulation requires ALL retrieved evidence, not just the first results that arrive. Skipping ahead with incomplete evidence produces reports with systematic blind spots.
+
+**With synchronous parallel spawn (see Step 2), this gate is automatically enforced** — the pipeline blocks until all agents in the single-message spawn complete. No manual monitoring is needed. If any agent fails, its error is returned inline and you MUST launch a replacement before proceeding.
+
+**Retry logic for failed sub-agents:**
+1. If a sub-agent returns an error or empty result: launch ONE replacement agent with a different query formulation
+2. If the replacement also fails: document the coverage gap explicitly — "The [lens] perspective is underrepresented because sub-agent retrieval failed despite retry. The following research angles were not covered: [list]." Include this in the report's Limitations section.
+3. NEVER proceed to Phase 4 with zero results from a sub-agent without either a successful retry OR an explicit documented gap.
+
+**Maximum 1 retry per failed sub-agent.** Do not retry more than once — if two attempts fail, the information may not be available, and further retries waste budget.
 
 The FFS (First Finish Search) pattern above applies only to the initial parallel search burst (Step 1). It does NOT grant permission to skip ahead while sub-agents (Step 2) are still running. Sub-agent results are deep-dive evidence that triangulation depends on for cross-referencing.
 
@@ -979,9 +995,9 @@ BRIEF
 
 # --dangerously-skip-permissions: Required because the subprocess has no interactive
 # stdin (< /dev/null) and cannot prompt for tool permissions.
-# --max-turns 40: Caps turn count to prevent runaway subprocesses.
-# Note: GNU timeout (gtimeout on macOS) can be added for wall-clock limits if available.
-claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" --max-turns 40 \
+# --max-turns 80: Sufficient for compressed pipeline (RETRIEVE through lightweight VERIFY).
+# --dangerously-skip-permissions: Required — subprocess has no interactive stdin.
+claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" --max-turns 80 \
   --dangerously-skip-permissions < /dev/null 2>/tmp/retry-${UUID8}.err
 ```
 
