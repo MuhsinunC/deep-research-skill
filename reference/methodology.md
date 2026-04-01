@@ -71,7 +71,7 @@ Academic research on LLM self-correction shows that unstructured "think step-by-
 
 This is NOT additional time — it's structuring the thinking that already happens into a more effective pattern. The EVALUATE step's output feeds directly into the next phase's PLAN step, creating a continuous improvement loop across the pipeline.
 
-**Note on MONITOR:** Unlike PLAN and EVALUATE (which have explicit checkpoints), MONITOR operates continuously during execution. Check against phase goals and predicted failure modes whenever you complete a sub-step. The most valuable MONITOR points are: during RETRIEVE when collecting parallel results (are sub-agents producing output?), during TRIANGULATE when resolving contradictions (am I anchoring on the first source?), during SYNTHESIZE when building arguments (am I extrapolating beyond the evidence?), during REFINE when applying fixes (is this fix introducing new inconsistencies?), and during VERIFY when processing sub-agent results (is confirmation bias affecting my interpretation?).
+**Note on MONITOR:** Unlike PLAN and EVALUATE (which have explicit checkpoints), MONITOR operates continuously during execution. Check against phase goals and predicted failure modes whenever you complete a sub-step. The most valuable MONITOR points are: during RETRIEVE when collecting parallel results (are sub-agents producing output?), during TRIANGULATE when resolving contradictions (am I anchoring on the first source?), during SYNTHESIZE when building arguments (am I extrapolating beyond the evidence?), during REFINE when applying fixes (is this fix introducing new inconsistencies?), during VERIFY when processing sub-agent results (is confirmation bias affecting my interpretation?), and during VERIFY Step 5 when running supersession searches (am I spending the budget on the most important claims?).
 
 ---
 
@@ -764,7 +764,7 @@ This is more powerful than the original "return to Phase 3" approach because tar
 
 **Progress:** `[Phase VERIFY] Decomposing report into claims and verifying against sources...`
 
-**Extended Thinking Task (Think2 PLAN step):** Before decomposing, think through which claims in the report are highest-risk for inaccuracy. Quantitative claims, causal claims, and claims that surprised you during research are the most likely to be wrong. Prioritize verifying those.
+**Extended Thinking Task (Think2 PLAN step):** Before decomposing, think through which claims in the report are highest-risk for inaccuracy. Quantitative claims, causal claims, and claims that surprised you during research are the most likely to be wrong. Prioritize verifying those. Also: which claims are highest-risk for supersession based on domain half-life and source age? Plan supersession search budget allocation — spend on the most critical claims first.
 
 **When to Execute:** Deep and UltraDeep modes only (Quick and Standard skip this).
 
@@ -838,10 +838,12 @@ Sub-agents follow the same reliability protocols: write-after-search, designated
 Wait for all verification sub-agents to complete (same stuck-agent monitoring applies).
 
 Read all verification results. Categorize:
-- **All VERIFIED:** Proceed to Phase 8 (PACKAGE)
+- **All VERIFIED:** Proceed to Step 4 (completeness and source quality checks still apply, and Step 5 supersession checks may catch issues that citation verification cannot)
 - **Any CONTRADICTED:** This is critical — the report contains a claim that is actively wrong. Return to Phase 7 (REFINE) to fix the specific claim. Remove or correct it with the contradicting evidence.
 - **3+ QUESTIONABLE:** The report may be overstating its evidence base. Return to Phase 7 (REFINE) to soften overstated claims or find stronger supporting sources.
 - **3+ UNVERIFIABLE:** Too many dead/blocked sources. Return to Phase 3 (RETRIEVE) to find replacement sources for unverifiable citations.
+
+Before looping back, check the global loop-back budget (see Step 5's shared budget note). If the 2-cycle budget is exhausted, proceed to Step 4 instead of looping back, and document remaining issues in Limitations.
 
 ### Step 4: Completeness and Source Quality Check
 
@@ -853,9 +855,55 @@ After claim verification, do two quick tool-grounded checks:
 
 These are structural checks (counting, matching) not subjective quality scoring.
 
-**Maximum 2 loop-back cycles** to prevent infinite loops. If issues persist after 2 cycles, proceed to PACKAGE and document all QUESTIONABLE/UNVERIFIABLE/CONTRADICTED claims in the Limitations section.
+### Step 5: Temporal Supersession Check (conditional)
 
-**Think2 EVALUATE (after activities):** Count: how many claims VERIFIED vs. QUESTIONABLE vs. CONTRADICTED vs. UNVERIFIABLE? Is the pass rate acceptable, or does the report need another REFINE cycle? What should PACKAGE emphasize in the methodology appendix?
+**Objective:** Actively search for evidence that key claims have been superseded by newer information. Temporal credibility decay (Phase 3) is passive — it down-weights old sources at retrieval time. This step catches claims that were current when retrieved but have since been contradicted, replaced, or rendered obsolete — including cases where new information emerged during a long research session.
+
+**Gate check:** Only execute when the topic domain's half-life (from Phase 1 SCOPE, Activity 6) is **≤90 days** (news/trending = 7d, tech/software = 90d). If domain half-life >90 days for all sub-questions, SKIP this step entirely and proceed to Think2 EVALUATE, then Phase 8 (PACKAGE). For multi-domain topics, apply only to claims in sub-questions with half-life ≤90 days.
+
+**Budget:** Maximum 2 supersession searches per claim, maximum 10 total supersession searches per report. Use **WebSearch** for all supersession searches (these are discovery searches for newer information, not URL verification).
+
+**Claim prioritization:** When eligible claims exceed the search budget, prioritize claims that are (a) central to the report's conclusions and (b) oldest relative to their domain half-life. Skip peripheral claims. Select the top N claims such that estimated search count fits within the 10-search budget, using worst-case estimates (2 searches each for claims beyond 2 half-lives). This prevents budget exhaustion on low-value checks, especially for 7-day half-life domains where nearly every source older than a week would trigger searches.
+
+**For each prioritized claim:**
+
+1. **Identify the claim's source date** — extract the publication date from the cited source. If a claim cites multiple sources, use the oldest source date to determine search effort (conservative — if the oldest supporting source is still current, the claim is likely current). If the source has no identifiable publication date, treat it as being at 2 half-lives old (maximum search effort). Undated sources in fast-moving domains are the highest risk for being outdated.
+2. **If the source is within 1 half-life of today** — skip (still current)
+3. **If the source is between 1-2 half-lives old** — run ONE supersession search
+4. **If the source is beyond 2 half-lives** — run TWO supersession searches (higher risk of being outdated)
+
+**Generating supersession search queries:** For each claim, identify the most specific named entity or metric (benchmark name, product name, framework name, version number) and use that as the primary search term. If the claim contains a quantitative result, search for the current state of that metric. If the claim is about an entity's status, search for the entity name plus the current year.
+
+Query templates by claim type:
+- Benchmark claims: `"[benchmark name] state of the art [current year]"` or `"[benchmark name] leaderboard [current year]"`
+- Technology claims: `"[technology/framework] [current year] changes OR updates OR deprecated"`
+- Market/pricing claims: `"[product/service] pricing [current year]"` or `"[product/service] pricing changes"`
+- Research findings: `"[key finding terms] [current year] update OR contradicted OR replicated"`
+- Factual claims about entities: `"[entity name] [current year]"` (catches acquisitions, shutdowns, pivots)
+
+**Processing results:** For each supersession search result:
+- If newer evidence **contradicts** the claim → mark as **SUPERSEDED** with the newer source
+- If newer evidence **updates** the claim (e.g., new pricing, new version) → mark as **OUTDATED** with the current information
+- If no newer evidence found → the claim stands (no status change needed — absence of superseding evidence is the default). Only record SUPERSEDED and OUTDATED statuses in the output to avoid noise.
+
+**Output format for supersession results:**
+```
+Claim: [exact claim text]
+Original Source Date: [date or "undated"]
+Supersession Status: SUPERSEDED / OUTDATED
+Newer Source: [URL]
+Evidence: [what changed — brief summary of the superseding information]
+---
+```
+
+**Step 5 loop-back decision (independent of Step 3):**
+- **Any SUPERSEDED:** Return to Phase 7 (REFINE) to replace the claim with current information from the superseding source
+- **3+ OUTDATED:** Return to Phase 7 (REFINE) to update the outdated claims with current data (OUTDATED is less severe than SUPERSEDED — individual outdated claims are noted as limitations rather than triggering rework)
+- **Fewer than 3 OUTDATED and zero SUPERSEDED:** Proceed to Think2 EVALUATE → Phase 8 (PACKAGE)
+
+**Maximum 2 loop-back cycles (global budget, shared with Step 3):** A single counter tracks total VERIFY → REFINE round-trips regardless of whether Step 3 or Step 5 triggered the loop-back. If the budget is exhausted, proceed to PACKAGE and document all QUESTIONABLE/UNVERIFIABLE/CONTRADICTED/SUPERSEDED/OUTDATED claims in the Limitations section with appropriate notes (e.g., "This claim may be outdated — [newer source and reason]").
+
+**Think2 EVALUATE (after activities):** Count: how many claims VERIFIED vs. QUESTIONABLE vs. CONTRADICTED vs. UNVERIFIABLE? How many claims were checked for supersession? How many were SUPERSEDED/OUTDATED? Did the supersession budget allocation target the right claims? Is the pass rate acceptable, or does the report need another REFINE cycle? What should PACKAGE emphasize in the methodology appendix?
 
 **Output:** Verification results file with per-claim status and evidence. Save checkpoint.
 
@@ -867,7 +915,7 @@ These are structural checks (counting, matching) not subjective quality scoring.
 
 **Progress:** `[Phase PACKAGE] Generating final report with bibliography...`
 
-**Extended Thinking Task (Think2 PLAN step):** Before writing, review the refined outline and verification results. Which findings are most important for the executive summary? Are there any VERIFY results (QUESTIONABLE/CONTRADICTED) that must be reflected in the limitations section? Does the bibliography need cleanup (duplicates, dead links)?
+**Extended Thinking Task (Think2 PLAN step):** Before writing, review the refined outline and verification results. Which findings are most important for the executive summary? Are there any VERIFY results (QUESTIONABLE/CONTRADICTED/SUPERSEDED/OUTDATED) that must be reflected in the limitations section? Does the bibliography need cleanup (duplicates, dead links)?
 
 **Activities:**
 1. Structure report with clear hierarchy
@@ -878,7 +926,7 @@ These are structural checks (counting, matching) not subjective quality scoring.
 6. Add methodology appendix
 7. Include verification results summary (per-claim status from Phase 7.5 VERIFY) in the methodology appendix
 
-**Think2 EVALUATE (after activities):** Does the report address every component of the original research question from SCOPE? Count: citations in text vs. bibliography entries — do they match? Are all VERIFY findings represented in the methodology appendix? Is the executive summary accurate and not overstated relative to the evidence?
+**Think2 EVALUATE (after activities):** Does the report address every component of the original research question from SCOPE? Count: citations in text vs. bibliography entries — do they match? Are all VERIFY findings represented in the methodology appendix? Are supersession check results (SUPERSEDED/OUTDATED) documented alongside citation verification results? Is the executive summary accurate and not overstated relative to the evidence?
 
 **Output:** Complete research report ready for use. Save final checkpoint.
 
