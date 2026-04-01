@@ -995,9 +995,9 @@ BRIEF
 
 # --dangerously-skip-permissions: Required because the subprocess has no interactive
 # stdin (< /dev/null) and cannot prompt for tool permissions.
-# --max-turns 80: Sufficient for compressed pipeline (RETRIEVE through lightweight VERIFY).
+# --max-turns 200: Generous budget for compressed pipeline. Turns don't cost extra (only tokens do).
 # --dangerously-skip-permissions: Required — subprocess has no interactive stdin.
-claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" --max-turns 80 \
+claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" --max-turns 200 \
   --dangerously-skip-permissions < /dev/null 2>/tmp/retry-${UUID8}.err
 ```
 
