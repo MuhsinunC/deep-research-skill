@@ -979,13 +979,14 @@ BRIEF
 
 # --dangerously-skip-permissions: Required because the subprocess has no interactive
 # stdin (< /dev/null) and cannot prompt for tool permissions.
-# timeout 900: 15-minute wall-clock limit prevents runaway subprocesses.
-timeout 900 claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" --max-turns 40 \
+# --max-turns 40: Caps turn count to prevent runaway subprocesses.
+# Note: GNU timeout (gtimeout on macOS) can be added for wall-clock limits if available.
+claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" --max-turns 40 \
   --dangerously-skip-permissions < /dev/null 2>/tmp/retry-${UUID8}.err
 ```
 
 **Failure detection:** After the subprocess exits, check:
-1. Non-zero exit code (crash, timeout, or `timeout` kill) → fall back to Candidate A
+1. Non-zero exit code (crash or max-turns exhausted) → fall back to Candidate A
 2. `candidate_B.md` does not exist or is <500 words → empty/incomplete output → fall back
 3. `candidate_B_verification.md` does not exist → incomplete VERIFY → fall back
 
