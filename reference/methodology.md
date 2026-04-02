@@ -804,6 +804,25 @@ Skip claims that are:
 - The author's own synthesis/opinion (clearly labeled as such)
 - Trivially verifiable definitions
 
+**DRA Rubric Tagging:** After extracting claims, tag each claim with 1-3 applicable failure sub-categories from the DRA Failure Taxonomy (arXiv:2601.15808). This focuses verification on the most likely failure modes for each claim type.
+
+DRA Failure Taxonomy (5 categories, 13 sub-categories):
+- **Reasoning:** (R1) failure to understand requirements, (R2) lack of analytical depth, (R3) limited analytical scope, (R4) rigid planning strategy
+- **Retrieval:** (T1) deficient external acquisition, (T2) misaligned evidence representation, (T3) ineffective handling/integration, (T4) lack of verification mechanism
+- **Generation:** (G1) redundant content piling, (G2) structural disorganization, (G3) specification deviation, (G4) deficient rigor, (G5) strategic fabrication
+
+**Claim-level vs. structural sub-categories:** Sub-categories R3 (limited scope), R4 (rigid planning), G1 (redundant content), and G2 (structural disorganization) are structural/process concerns that cannot be assessed by a claim-level verifier fetching a single source. These are addressed by Phase 6 CRITIQUE and Phase 7 REFINE, not by VERIFY rubric checks. Only the remaining 9 sub-categories (R1, R2, T1-T4, G3-G5) are used for claim-level tagging.
+
+Tagging heuristics (apply the most specific matches):
+- Quantitative claims → G4 (deficient rigor), G5 (strategic fabrication)
+- Comparative claims → T2 (misaligned evidence representation), R2 (lack of analytical depth)
+- Causal claims → R2 (lack of analytical depth), T3 (ineffective handling/integration)
+- Claims with single-source citations → T1 (deficient external acquisition), T4 (lack of verification mechanism)
+- Claims that restate the research question's framing → R1 (failure to understand requirements), G3 (specification deviation)
+- **Fallback:** If a claim does not match any heuristic above, tag it with G4 (deficient rigor) and G5 (strategic fabrication) as baseline checks — accuracy and fabrication are universally relevant failure modes.
+
+Record the DRA tags alongside each claim for use in the verification prompt.
+
 ### Step 2: Spawn Citation Verification Sub-Agents
 
 Spawn 2-3 sub-agents to verify claims in parallel. Each sub-agent gets a batch of claims and their cited source URLs.
@@ -827,15 +846,30 @@ Verification sub-agents must receive ONLY the claims and their cited source URLs
 **Batch composition:** When distributing claims across sub-agents, apply two shuffling rules: (1) no batch should contain more than 2 claims from the same report section, and (2) mix claim types (quantitative, causal, comparative) across batches rather than concentrating them. If the claim count and agent count make perfect distribution impossible, prioritize rule 1 over rule 2.
 
 **Prompt for each verification sub-agent:**
-> "You are a claim verification agent. You have NO context about what report these claims come from or what conclusions the report reaches. Your ONLY job is to check whether each cited source actually supports the claim.
+> "You are a claim verification agent. You have NO context about what report these claims come from or what conclusions the report reaches. Your ONLY job is to check whether each cited source actually supports the claim AND whether the claim exhibits any of the tagged failure modes.
 >
-> For each claim below, use WebFetch to retrieve the cited source URL and verify whether the source actually supports the claim. Do NOT rely on your training data — you MUST fetch and read the source.
+> For each claim below, use WebFetch to retrieve the cited source URL. Then perform TWO checks:
 >
-> For each claim, report:
+> **Check 1 — Source Verification:** Does the cited source actually support the claim?
 > - VERIFIED: Source content confirms the claim
 > - QUESTIONABLE: Source exists but doesn't clearly support the claim, or the claim overstates/distorts what the source says
 > - UNVERIFIABLE: Source URL returns 403/404/error, or content doesn't address the claim at all
 > - CONTRADICTED: Source actually contradicts the claim
+>
+> **Check 2 — DRA Rubric Check:** For each tagged failure mode, assess whether the claim actually exhibits that failure. Only report a DRA flag if you find a concrete problem — being tagged for a check is not the same as failing it. Use the rubric descriptions below (ordered by taxonomy):
+> - R1 (misunderstood requirements): Does the claim actually address what was asked, or does it answer a different question?
+> - R2 (lack of depth): Does the claim oversimplify what the source actually describes? Are important qualifications or conditions dropped?
+> - T1 (deficient acquisition): Is this the strongest available source for this claim, or does the source itself reference a more authoritative primary source?
+> - T2 (misaligned evidence): Does the source actually address the same comparison/context as the claim? Or is evidence from a different context being applied here?
+> - T3 (ineffective integration): If multiple sources are cited, do they actually support the same point, or are they about different things being conflated?
+> - T4 (lack of verification): Is the claim verifiable from this source alone, or does it require additional sources that aren't cited?
+> - G3 (specification deviation): Does the claim match the stated scope and focus of the research?
+> - G4 (deficient rigor): Are numbers, dates, or measurements accurate? Does the source state exactly what the claim states, or has precision been lost/invented?
+> - G5 (strategic fabrication): Does the claim assert something the source never mentions? Is any part of the claim invented rather than sourced?
+>
+> Note: R3, R4, G1, G2 are structural sub-categories assessed by CRITIQUE/REFINE, not by claim-level verification. If a claim is tagged with any of these, report "structural — not assessed at claim level" for those tags.
+>
+> Do NOT rely on your training data — you MUST fetch and read the source.
 >
 > Write results to [OUTPUT_FILE_PATH]. After every verification, immediately write to the file. Format:
 > Claim: [exact claim text]
@@ -843,6 +877,7 @@ Verification sub-agents must receive ONLY the claims and their cited source URLs
 > Source: [URL]
 > Status: VERIFIED/QUESTIONABLE/UNVERIFIABLE/CONTRADICTED
 > Evidence: [direct quote from the source, in quotation marks, with the surrounding sentence for context. Do NOT paraphrase — copy the exact text that supports or contradicts the claim.]
+> DRA Flags: [List any triggered failure modes, e.g., 'G4: number differs — source says 15%, claim says 25%' or 'NONE' if no failures detected]
 > ---"
 
 Sub-agents follow the same reliability protocols: write-after-search, designated output file paths.
@@ -853,11 +888,18 @@ Sub-agents follow the same reliability protocols: write-after-search, designated
 
 Wait for all verification sub-agents to complete (same sub-agent failure handling applies — see Phase 3 Operational Reliability Protocol).
 
-Read all verification results. Categorize:
-- **All VERIFIED:** Proceed to Step 4 (completeness and source quality checks still apply, and Step 5 supersession checks may catch issues that citation verification cannot)
+Read all verification results. Process standard statuses and DRA flags as two independent checks:
+
+**Standard verification statuses (accuracy check):**
+- **All VERIFIED:** No standard-status loop-backs needed. Proceed to the DRA flag analysis below, then to Step 4.
 - **Any CONTRADICTED:** This is critical — the report contains a claim that is actively wrong. Return to Phase 7 (REFINE) to fix the specific claim. Remove or correct it with the contradicting evidence.
 - **3+ QUESTIONABLE:** The report may be overstating its evidence base. Return to Phase 7 (REFINE) to soften overstated claims or find stronger supporting sources.
 - **3+ UNVERIFIABLE:** Too many dead/blocked sources. Return to Phase 3 (RETRIEVE) to find replacement sources for unverifiable citations.
+
+**DRA flag analysis (quality check):** Analyze DRA flags that sub-agents actually triggered (not just tagged — only flags where the sub-agent found a concrete problem):
+- **3+ claims where the same DRA sub-category check failed:** This indicates a systematic failure mode, not isolated errors. Address the root cause in REFINE rather than fixing claims individually. For example, 3+ G4 failures suggest systematic imprecision; 3+ T2 failures suggest evidence is being applied out of context.
+- **Any G5 (strategic fabrication) flag:** Treat as equivalent to CONTRADICTED — the claim contains invented content. Return to Phase 7 (REFINE) immediately.
+- **DRA flags on VERIFIED claims:** A claim can be VERIFIED (source supports it) yet still have DRA flags (e.g., T1 — a stronger primary source exists, or R2 — the claim oversimplifies). These are quality issues, not accuracy failures. Note them for REFINE but do not treat as blocking.
 
 Before looping back, check the global loop-back budget (see Step 5's shared budget note). If the 2-cycle budget is exhausted, proceed to Step 4 instead of looping back, and document remaining issues in Limitations.
 
@@ -929,6 +971,8 @@ Evidence: [what changed — brief summary of the superseding information]
 3. Persistent failures remain in the MOST RECENT VERIFY pass (the one that exhausted the budget, not cumulative counts across all cycles): ≥2 CONTRADICTED (from Step 3), OR ≥3 QUESTIONABLE (from Step 3), OR ≥2 SUPERSEDED (from Step 5). Count each status type independently from its originating step.
 
 If ANY condition is not met, proceed to PACKAGE and document remaining issues in Limitations (existing behavior).
+
+**Note on DRA flags and Step 6:** DRA quality issues (systematic T2, R2, etc.) do not trigger Step 6. DRA flags represent quality degradation (oversimplification, out-of-context evidence) rather than factual inaccuracy, and are addressed through REFINE loop-backs. Step 6's expensive fresh-context retry is reserved for accuracy failures (CONTRADICTED, QUESTIONABLE, SUPERSEDED) that persist after REFINE attempts.
 
 **Key architectural principle:** Genuine context isolation requires spawning a NEW process. Instructing a Claude instance to "ignore prior context" within the same context window does not work — the model will still be influenced by prior searches and reasoning, producing correlated errors. The retry MUST be a subprocess with its own fresh context.
 
@@ -1032,7 +1076,7 @@ The merged report goes directly to Phase 8 (PACKAGE) — no additional full VERI
 
 **Cost:** Step 6 adds approximately 80-120% of the original research cost when triggered. For reports that pass verification normally (no persistent failures after 2 cycles), Step 6 adds ZERO cost. It is a one-shot retry — runs at most once per research task.
 
-**Think2 EVALUATE (after activities):** Count: how many claims VERIFIED vs. QUESTIONABLE vs. CONTRADICTED vs. UNVERIFIABLE? How many claims were checked for supersession? How many were SUPERSEDED/OUTDATED? Did the supersession budget allocation target the right claims? Was Step 6 triggered? If so, how many claims improved in Candidate B vs Candidate A? Did the merge produce a stronger report than either candidate alone? What should PACKAGE emphasize in the methodology appendix?
+**Think2 EVALUATE (after activities):** Count: how many claims VERIFIED vs. QUESTIONABLE vs. CONTRADICTED vs. UNVERIFIABLE? What DRA failure patterns emerged — did any sub-category appear 3+ times (systematic failure)? Were any G5 (fabrication) flags triggered? How many claims were checked for supersession? How many were SUPERSEDED/OUTDATED? Did the supersession budget allocation target the right claims? Was Step 6 triggered? If so, how many claims improved in Candidate B vs Candidate A? Did the merge produce a stronger report than either candidate alone? What should PACKAGE emphasize in the methodology appendix?
 
 **Output:** Verification results file with per-claim status and evidence. If Step 6 was triggered, also Candidate A, Candidate B, and merged report. Save checkpoint.
 
