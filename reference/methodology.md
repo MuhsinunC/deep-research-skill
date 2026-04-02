@@ -825,7 +825,7 @@ Record the DRA tags alongside each claim for use in the verification prompt.
 
 ### Step 2: Spawn Citation Verification Sub-Agents
 
-Spawn 2-3 sub-agents to verify claims in parallel. Each sub-agent gets a batch of claims and their cited source URLs.
+Spawn 2-3 citation verification sub-agents PLUS 1 adversarial refutation agent in the same synchronous parallel spawn (all in a single message). The citation verifiers check existing sources; the adversarial agent independently searches for contradicting evidence the original retrieval may have missed.
 
 **CRITICAL — Information Asymmetry Protocol:**
 Verification sub-agents must receive ONLY the claims and their cited source URLs — NOT the full report, NOT the surrounding analysis, and NOT the report's conclusions. This prevents confirmation bias: a verifier who has read the full report will unconsciously seek to confirm its conclusions rather than genuinely checking the evidence.
@@ -880,15 +880,51 @@ Verification sub-agents must receive ONLY the claims and their cited source URLs
 > DRA Flags: [List any triggered failure modes, e.g., 'G4: number differs — source says 15%, claim says 25%' or 'NONE' if no failures detected]
 > ---"
 
+**Adversarial Refutation Agent:**
+
+In addition to citation verification sub-agents, spawn ONE adversarial refutation agent in the **same synchronous parallel message**. This agent receives the top 3-5 most important claims (those most central to the report's conclusions) and actively searches for CONTRADICTING evidence. Unlike citation verifiers, the adversarial agent does NOT receive source URLs — it conducts independent web searches.
+
+**Claim selection for adversarial refutation:** From Step 1's extracted claims, select the 3-5 that are (a) most central to the report's conclusions, (b) most contentious or surprising, or (c) highest-risk based on DRA tagging (G5, T2, or R2 tags). If fewer than 3 claims meet these criteria, use the 3 most central.
+
+**What to include in the adversarial prompt:**
+- The exact claim text (same as citation verifiers — stripped of hedging/framing)
+- The DRA tags for each claim
+
+**What to EXCLUDE:**
+- Source URLs (the adversarial agent must find evidence independently)
+- The full report, conclusions, or synthesis (information asymmetry applies)
+- Any indication of which direction the report leans
+
+**Prompt for the adversarial refutation agent:**
+> "You are an adversarial claim refutation agent. Your ONLY job is to try to DISPROVE each claim below by finding credible contradicting evidence. You are NOT trying to verify or support these claims — you are actively looking for reasons they might be wrong.
+>
+> For each claim, use WebSearch to find evidence that CONTRADICTS it. Try at least 2 different search queries per claim — one direct refutation query (e.g., 'X is NOT better than Y' or 'problems with X') and one alternative-evidence query (e.g., 'Y outperforms X' or 'limitations of X study').
+>
+> For each claim, report:
+> - REFUTED: Found credible evidence that directly contradicts the claim. Include source URL and quote.
+> - WEAKENED: Found evidence that partially undermines the claim or adds significant caveats not mentioned. Include source URL and quote.
+> - WITHSTOOD: After genuine adversarial search, could not find credible contradicting evidence. The claim appears robust.
+>
+> Do NOT accept the claim at face value. Assume it might be wrong and search accordingly. If you find yourself agreeing with the claim, search harder for contradictions.
+>
+> **Source credibility requirement:** Only report REFUTED if the contradicting source is at least as credible as a journalism or industry source (academic papers, official documentation, established news outlets). Blog posts, forums, and user-generated content can support a WEAKENED status but not REFUTED unless corroborated by a second credible source.
+>
+> Write results to [OUTPUT_FILE_PATH]. After every search, immediately write to the file. Format:
+> Claim: [exact claim text]
+> Adversarial Status: REFUTED/WEAKENED/WITHSTOOD
+> Search Queries Used: [list the queries you tried]
+> Contradicting Evidence: [URL and direct quote if REFUTED/WEAKENED, or 'None found after N searches' if WITHSTOOD]
+> ---"
+
 Sub-agents follow the same reliability protocols: write-after-search, designated output file paths.
 
 **Note on Phase 3 sub-agent requirements:** Verification sub-agents do not require a research lens (item 4 from Phase 3's NOTE) since they verify specific URLs rather than conducting open research. Source preference heuristics (item 3) apply only if a cited URL is inaccessible and the verifier must find an alternative source — in that case, follow the Source Preference Heuristics from Phase 3 and the Blocked Site Handling protocol.
 
 ### Step 3: Process Verification Results
 
-Wait for all verification sub-agents to complete (same sub-agent failure handling applies — see Phase 3 Operational Reliability Protocol).
+Wait for all sub-agents to complete — both citation verification agents AND the adversarial refutation agent (same sub-agent failure handling applies — see Phase 3 Operational Reliability Protocol). Since all agents are spawned in a single synchronous message, they complete together.
 
-Read all verification results. Process standard statuses and DRA flags as two independent checks:
+Read all results. Process citation verification results, DRA flags, and adversarial results as three independent checks:
 
 **Standard verification statuses (accuracy check):**
 - **All VERIFIED:** No standard-status loop-backs needed. Proceed to the DRA flag analysis below, then to Step 4.
@@ -900,6 +936,13 @@ Read all verification results. Process standard statuses and DRA flags as two in
 - **3+ claims where the same DRA sub-category check failed:** This indicates a systematic failure mode, not isolated errors. Address the root cause in REFINE rather than fixing claims individually. For example, 3+ G4 failures suggest systematic imprecision; 3+ T2 failures suggest evidence is being applied out of context.
 - **Any G5 (strategic fabrication) flag:** Treat as equivalent to CONTRADICTED — the claim contains invented content. Return to Phase 7 (REFINE) immediately.
 - **DRA flags on VERIFIED claims:** A claim can be VERIFIED (source supports it) yet still have DRA flags (e.g., T1 — a stronger primary source exists, or R2 — the claim oversimplifies). These are quality issues, not accuracy failures. Note them for REFINE but do not treat as blocking.
+
+**Adversarial refutation results (robustness check):**
+- **Any REFUTED:** The adversarial agent found credible evidence directly contradicting a claim. Treat as equivalent to CONTRADICTED from citation verification — return to Phase 7 (REFINE) to address. Include the adversarial agent's contradicting source in the bibliography.
+- **WEAKENED claims:** The claim is not wrong, but the adversarial agent found significant caveats or qualifications. In REFINE, add the caveats to the claim or soften its language. Include the weakening source in the bibliography. WEAKENED results do not count toward the CONTRADICTED threshold for Step 6 trigger — they are quality improvements, not accuracy failures.
+- **All WITHSTOOD:** Claims that survived adversarial search are high-confidence. Note this in the report's methodology appendix as an additional validation signal.
+
+**Cross-referencing adversarial and citation results:** If a claim is VERIFIED by citation verification but REFUTED by adversarial search, this means the cited source supports the claim, but other credible sources contradict it — a genuine factual dispute. In REFINE, revise the claim to present both sides: cite the original supporting source and the adversarial contradicting source, and note that credible evidence exists on both sides. For Step 6 threshold counting, treat VERIFIED-but-REFUTED as REFUTED (it is still a factual accuracy problem, even though the original citation is correct).
 
 Before looping back, check the global loop-back budget (see Step 5's shared budget note). If the 2-cycle budget is exhausted, proceed to Step 4 instead of looping back, and document remaining issues in Limitations.
 
@@ -968,7 +1011,7 @@ Evidence: [what changed — brief summary of the superseding information]
 **Trigger gate (ALL conditions must be met):**
 1. Deep or UltraDeep mode
 2. The 2-cycle loop-back budget is exhausted
-3. Persistent failures remain in the MOST RECENT VERIFY pass (the one that exhausted the budget, not cumulative counts across all cycles): ≥2 CONTRADICTED (from Step 3), OR ≥3 QUESTIONABLE (from Step 3), OR ≥2 SUPERSEDED (from Step 5). Count each status type independently from its originating step.
+3. Persistent failures remain in the MOST RECENT VERIFY pass (the one that exhausted the budget, not cumulative counts across all cycles): ≥2 CONTRADICTED (from citation verification or adversarial REFUTED — count together), OR ≥3 QUESTIONABLE (from Step 3), OR ≥2 SUPERSEDED (from Step 5). Count each status type independently from its originating step.
 
 If ANY condition is not met, proceed to PACKAGE and document remaining issues in Limitations (existing behavior).
 
@@ -1007,7 +1050,7 @@ TEMPORAL CREDIBILITY DECAY: Sources past 2 half-lives should be deprioritized un
 are foundational works. The topic domain half-life is stated above.
 
 FAILED CLAIMS FROM FIRST PASS:
-- Claim: [exact text] | Status: CONTRADICTED/QUESTIONABLE/SUPERSEDED | Reason: [brief]
+- Claim: [exact text] | Status: CONTRADICTED/REFUTED/QUESTIONABLE/SUPERSEDED | Reason: [brief]
 - [repeat for each failed claim]
 
 INSTRUCTIONS:
@@ -1076,7 +1119,7 @@ The merged report goes directly to Phase 8 (PACKAGE) — no additional full VERI
 
 **Cost:** Step 6 adds approximately 80-120% of the original research cost when triggered. For reports that pass verification normally (no persistent failures after 2 cycles), Step 6 adds ZERO cost. It is a one-shot retry — runs at most once per research task.
 
-**Think2 EVALUATE (after activities):** Count: how many claims VERIFIED vs. QUESTIONABLE vs. CONTRADICTED vs. UNVERIFIABLE? What DRA failure patterns emerged — did any sub-category appear 3+ times (systematic failure)? Were any G5 (fabrication) flags triggered? How many claims were checked for supersession? How many were SUPERSEDED/OUTDATED? Did the supersession budget allocation target the right claims? Was Step 6 triggered? If so, how many claims improved in Candidate B vs Candidate A? Did the merge produce a stronger report than either candidate alone? What should PACKAGE emphasize in the methodology appendix?
+**Think2 EVALUATE (after activities):** Count: how many claims VERIFIED vs. QUESTIONABLE vs. CONTRADICTED vs. UNVERIFIABLE? What DRA failure patterns emerged — did any sub-category appear 3+ times (systematic failure)? Were any G5 (fabrication) flags triggered? Adversarial results: how many claims WITHSTOOD vs. WEAKENED vs. REFUTED? Did any VERIFIED-but-REFUTED conflicts reveal genuine factual disputes? How many claims were checked for supersession? How many were SUPERSEDED/OUTDATED? Did the supersession budget allocation target the right claims? Was Step 6 triggered? If so, how many claims improved in Candidate B vs Candidate A? Did the merge produce a stronger report than either candidate alone? What should PACKAGE emphasize in the methodology appendix?
 
 **Output:** Verification results file with per-claim status and evidence. If Step 6 was triggered, also Candidate A, Candidate B, and merged report. Save checkpoint.
 
@@ -1097,10 +1140,10 @@ The merged report goes directly to Phase 8 (PACKAGE) — no additional full VERI
 4. Create visualizations (tables, diagrams)
 5. Compile full bibliography
 6. Add methodology appendix
-7. Include verification results summary (per-claim status from Phase 7.5 VERIFY) in the methodology appendix
+7. Include verification results summary (per-claim status from Phase 7.5 VERIFY) in the methodology appendix, including adversarial refutation results (WITHSTOOD/WEAKENED/REFUTED) for the top claims
 8. If Step 6 (Verifier-Guided Retry) was triggered, include a methodology note: "A verification-guided retry was performed. The final report merges the strongest evidence from two independent research passes." List which claims were replaced from Candidate B.
 
-**Think2 EVALUATE (after activities):** Does the report address every component of the original research question from SCOPE? Count: citations in text vs. bibliography entries — do they match? Are all VERIFY findings represented in the methodology appendix? Are supersession check results (SUPERSEDED/OUTDATED) documented alongside citation verification results? Is the executive summary accurate and not overstated relative to the evidence?
+**Think2 EVALUATE (after activities):** Does the report address every component of the original research question from SCOPE? Count: citations in text vs. bibliography entries — do they match? Are all VERIFY findings represented in the methodology appendix? Are supersession check results (SUPERSEDED/OUTDATED) documented alongside citation verification results? Are adversarial refutation results (WITHSTOOD/WEAKENED/REFUTED) documented for the top claims? Is the executive summary accurate and not overstated relative to the evidence?
 
 **Output:** Complete research report ready for use. Save final checkpoint.
 
