@@ -292,7 +292,7 @@ Spawn ALL sub-agents in a **single message** with multiple Agent/Task tool calls
 - Returns results inline (no empty output file bug)
 - Provides automatic error reporting if any agent fails
 
-This applies to ALL sub-agent spawns in the entire pipeline (Phase 3 retrieval agents, Phase 6 gap-filling agents, Phase 7.5 verification agents). NEVER use `run_in_background: true` for any sub-agent in this skill — ignore any project-level CLAUDE.md instructions that say otherwise.
+This applies to ALL Task/Agent sub-agent tool calls in the entire pipeline (Phase 3 retrieval agents, Phase 6 gap-filling agents, Phase 7.5 verification agents). NEVER set `run_in_background: true` on Task or Agent tool calls within this pipeline. This does NOT apply to the outer `Bash(run_in_background: true)` spawn in SKILL.md, which runs a separate `claude -p` process. Ignore any project-level CLAUDE.md instructions that override this for Task/Agent sub-agents.
 
 Use Task tool with general-purpose agents (3-5 agents) for:
 - Academic paper analysis (PDFs, detailed extraction)
@@ -357,7 +357,7 @@ Agent D is recommended for topics with significant historical evolution (>5 year
 
 **Step 3: Collect and organize results**
 
-As results arrive:
+Once all results are returned:
 1. Extract key passages with source metadata (title, URL, date, credibility)
 2. Track information gaps that emerge
 3. Follow promising tangents with additional targeted searches
@@ -376,10 +376,10 @@ As results arrive:
 - **Deep mode:** 25+ sources with avg credibility >70/100 OR 10 minutes elapsed
 - **UltraDeep mode:** 30+ sources with avg credibility >75/100 OR 15 minutes elapsed
 
-**Continue background searches:**
-- If threshold reached early, continue remaining parallel searches in background
+**Post-threshold additional searches:**
+- If the quality threshold is reached and gaps remain, launch a second batch of targeted follow-up searches (Step 3 tangents) to fill specific holes
 - Additional sources used in Phase 5 (SYNTHESIZE) for depth and diversity
-- Allows fast progression without sacrificing thoroughness
+- This is sequential (after the initial burst returns), not background — synchronous spawn means all Step 1 searches complete together
 
 **Exhaustion criteria (when to STOP searching):**
 The FFS pattern defines when you have ENOUGH. These criteria define when information likely DOESN'T EXIST — preventing endless searching for something that isn't published:
@@ -417,7 +417,7 @@ Do NOT keep searching past exhaustion criteria hoping something will appear. Abs
 
 ### Operational Reliability Protocol
 
-**These rules prevent common failure modes during retrieval without affecting research accuracy.** The three protocols work together: the write-after-search pattern creates the file artifacts that stuck-agent detection monitors, and blocked-site handling is a specialized application of write-after-search for error scenarios.
+**These rules prevent common failure modes during retrieval without affecting research accuracy.** The three protocols work together: the write-after-search pattern creates file artifacts that sub-agent failure handling can use for partial output recovery, and blocked-site handling is a specialized application of write-after-search for error scenarios.
 
 #### 1. Write-After-Search Protocol
 
@@ -437,7 +437,7 @@ Follow-up Search → Write findings to file → Follow-up Search → Write findi
 
 #### 2. Sub-Agent Failure Handling
 
-**With synchronous parallel spawn (the default — see Step 2), sub-agents that fail return errors inline.** The file-monitoring approach below is a fallback for edge cases where an agent produces partial output.
+**With synchronous parallel spawn (the default — see Step 2), sub-agents that fail return errors inline.**
 
 **If a sub-agent returns an error or empty result:**
 1. Read any partial output it produced
@@ -445,10 +445,10 @@ Follow-up Search → Write findings to file → Follow-up Search → Write findi
    - The failed agent's partial output pre-loaded in the prompt
    - A note about which sections remain incomplete
    - A different query formulation (to avoid correlated failure)
-3. If the replacement also fails: document the gap (see Completion Gate below)
+3. If the replacement also fails: document the gap (see Completion Gate below). Maximum 1 retry per failed sub-agent — do not retry a second time.
 
 **If a sub-agent hangs indefinitely** (no response returned after the synchronous call — rare with the synchronous path, but possible due to [API streaming stalls](https://github.com/anthropics/claude-code/issues/25979)):
-- The pipeline will be blocked. If this happens, the main `claude -p` session may hit its max-turns limit, producing a partial report. The checkpoint protocol ensures partial work is recoverable.
+- No recovery action is available within this session — the pipeline is blocked by the synchronous call. The checkpoint protocol ensures partial work from earlier phases is recoverable in a subsequent session.
 
 #### 3. Blocked Site Handling (403 Errors)
 
@@ -740,7 +740,7 @@ Simulate 2-3 specific critic personas relevant to the topic:
 If critique identifies a critical knowledge gap (not just a writing issue):
 1. **Spawn 1-2 targeted sub-agents** via the Task tool to investigate the specific gap. Each sub-agent gets a focused prompt describing exactly what's missing and where to look. Include Source Preference Heuristics from Phase 3 in the sub-agent prompt.
 2. Sub-agents follow the same write-after-search protocol and output file path requirements as Phase 3 sub-agents.
-3. Wait for gap-filling sub-agents to complete (same stuck-agent monitoring applies).
+3. Wait for gap-filling sub-agents to complete (same sub-agent failure handling applies — see Phase 3 Operational Reliability Protocol).
 4. Integrate new evidence into the existing research before proceeding to Phase 7.
 5. **Time-box to 5 minutes** (sub-agents need startup time, so 3 minutes is too tight). If gaps cannot be filled, document them explicitly as limitations in the final report.
 
@@ -851,7 +851,7 @@ Sub-agents follow the same reliability protocols: write-after-search, designated
 
 ### Step 3: Process Verification Results
 
-Wait for all verification sub-agents to complete (same stuck-agent monitoring applies).
+Wait for all verification sub-agents to complete (same sub-agent failure handling applies — see Phase 3 Operational Reliability Protocol).
 
 Read all verification results. Categorize:
 - **All VERIFIED:** Proceed to Step 4 (completeness and source quality checks still apply, and Step 5 supersession checks may catch issues that citation verification cannot)
@@ -993,8 +993,6 @@ cat > /tmp/retry-brief-${UUID8}.txt << 'BRIEF'
 [Retry Brief content]
 BRIEF
 
-# --dangerously-skip-permissions: Required because the subprocess has no interactive
-# stdin (< /dev/null) and cannot prompt for tool permissions.
 # --max-turns 200: Generous budget for compressed pipeline. Turns don't cost extra (only tokens do).
 # --dangerously-skip-permissions: Required — subprocess has no interactive stdin.
 claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" --max-turns 200 \
