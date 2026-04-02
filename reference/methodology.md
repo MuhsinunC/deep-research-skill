@@ -194,7 +194,7 @@ Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`
 **Progress:** `[Phase RETRIEVE] Launching N parallel searches + M sub-agents...`
 Update progress after results arrive: `[Phase RETRIEVE] X/Y sources gathered, avg credibility Z/100...`
 
-**Extended Thinking Task (Think2 PLAN step):** Before launching searches, review the query decomposition strategy. Which search angles are highest priority? Which are most likely to return nothing (apply exhaustion criteria proactively)? Plan the sub-agent lens assignments. Predict: which sources will be hardest to access (paywalls, Cloudflare)? Which sub-topics have the highest risk of correlated results across agents?
+**Extended Thinking Task (Think2 PLAN step):** Before launching searches, review the query decomposition strategy. Which search angles are highest priority? Which are most likely to return nothing (apply exhaustion criteria proactively)? Plan the sub-agent lens assignments. For the 3-5 most central sub-questions, construct pro/con query pairs — which sub-questions are most likely to have evidence on both sides? Predict: which sources will be hardest to access (paywalls, Cloudflare)? Which sub-topics have the highest risk of correlated results across agents?
 
 **CRITICAL: Execute ALL searches in parallel using a single message with multiple tool calls**
 
@@ -244,6 +244,30 @@ Before launching searches, decompose the research question into 5-10 independent
 6. **Statistical/data sources** - Quantitative evidence, metrics, benchmarks
 7. **Industry analysis** - Commercial applications, market trends
 8. **Critical analysis/limitations** - Known problems, failure modes, edge cases
+
+### Pro/Con Query Pairs
+
+**For each major research sub-question (from Phase 1 SCOPE), generate TWO searches — one supporting and one contradicting.** This prevents confirmation bias at retrieval time by ensuring both sides of the evidence base are collected before synthesis begins.
+
+**How to construct pairs:**
+- **Supporting query:** Standard formulation seeking evidence FOR the expected answer (e.g., "benefits of X", "X improves Y", "evidence supporting X")
+- **Contradicting query:** Explicit negation or alternative formulation seeking evidence AGAINST (e.g., "problems with X", "X fails to improve Y", "X criticism limitations", "alternatives to X outperform")
+
+**Example pairs:**
+- Sub-question: "Does RAG improve LLM accuracy?"
+  - PRO: `"RAG improves LLM accuracy evidence"`
+  - CON: `"RAG limitations failures accuracy problems"`
+- Sub-question: "Is Rust faster than Go for web servers?"
+  - PRO: `"Rust web server performance benchmark faster"`
+  - CON: `"Go outperforms Rust web server" OR "Rust web server overhead problems"`
+
+**Integration with Step 1 parallel searches:** Include both PRO and CON queries in the single-message parallel search burst. Each pair adds 1 extra search to the burst (the PRO query is often already covered by the standard decomposition angles 1-8; the CON query is the new addition). For 3-5 major sub-questions, this adds 3-5 extra searches to the burst.
+
+**Scope:** Apply pro/con pairs to the 3-5 sub-questions most central to the research question's core thesis — prioritize those that are evaluative, comparative, or causal. Deprioritize factual lookups ("When was X founded?") and definitional queries, which don't need pairs.
+
+**Deduplication:** If a CON query substantially overlaps with an existing angle-5 or angle-8 query from the Query Decomposition Strategy, reformulate the CON query to target a different failure mode rather than launching a near-duplicate search. For example, if angle 8 already covers "X limitations problems," the CON query should search for evidence supporting the OPPOSITE conclusion ("Y outperforms X") rather than repeating the same failure terms.
+
+**How this interacts with Phase 4 Devil's Advocate:** Pro/con pairs provide raw evidence from both sides at retrieval time. Phase 4's Devil's Advocate searches are targeted — they search specifically to contradict the EMERGING THESIS after initial cross-referencing. The two mechanisms work at different stages and serve different purposes: pairs prevent one-sided evidence gathering; devil's advocate catches anchoring bias in the analysis.
 
 ### Parallel Execution Protocol
 
@@ -917,6 +941,8 @@ In addition to citation verification sub-agents, spawn ONE adversarial refutatio
 > ---"
 
 Sub-agents follow the same reliability protocols: write-after-search, designated output file paths.
+
+**Output file naming convention for VERIFY sub-agents:** Use `${OUTPUT_DIR}/verify_citation_N.md` for citation verification agents (N = 1, 2, 3) and `${OUTPUT_DIR}/verify_adversarial.md` for the adversarial refutation agent. This parallels the Phase 3 retrieval agent convention (`/tmp/research_agent_N.md`).
 
 **Note on Phase 3 sub-agent requirements:** Verification sub-agents do not require a research lens (item 4 from Phase 3's NOTE) since they verify specific URLs rather than conducting open research. Source preference heuristics (item 3) apply only if a cited URL is inaccessible and the verifier must find an alternative source — in that case, follow the Source Preference Heuristics from Phase 3 and the Blocked Site Handling protocol.
 
