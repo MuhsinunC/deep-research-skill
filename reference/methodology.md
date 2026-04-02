@@ -46,6 +46,32 @@ When evidence at ANY phase contradicts the current research direction or a key a
 
 This selective rollback approach prevents the sunk-cost fallacy of continuing research in a direction the evidence no longer supports.
 
+## Budget Awareness and Emergency Synthesis
+
+The pipeline runs in a `claude -p` session with `--max-turns 200`. While 200 turns provides generous headroom (deep mode historically required approximately 50-80 turns, though adversarial verification, pro/con pairs, and DRA rubrics may increase this), context compaction, sub-agent spawning, retry loops, and Step 6 can consume turns unpredictably. The pipeline has no API to query remaining turns, so budget awareness uses observable proxy signals.
+
+**Positive-path guard (MUST NOT trigger):** If the pipeline has NOT experienced ANY of the following, emergency synthesis MUST NOT be triggered — the pipeline is operating within normal parameters:
+- Context compaction has NOT occurred
+- No sub-agent retries were needed (all Phase 3 sub-agents succeeded on first attempt)
+- No browser fallbacks were invoked for blocked sites
+- VERIFY loop-back cycles have NOT been exhausted
+
+This guard prevents false budget exhaustion from degrading report quality on normal runs.
+
+**Pre-SYNTHESIZE budget signal:** After RETRIEVE completes, record in the checkpoint whether the phase required retries or browser fallbacks for more than half of its sub-agents. If yes, proceed with heightened budget awareness for remaining phases: reduce CRITIQUE's gap-filling sub-agent count to 1 (not 1-2), cap VERIFY loop-backs at 1 (not 2), and skip Step 5 (temporal supersession) and Step 6 (retry). This is a dial-down signal, not an emergency — the pipeline continues all phases but at reduced depth.
+
+**Emergency synthesis trigger:** From SYNTHESIZE onward, check these concrete proxy conditions at each phase's Think2 MONITOR step:
+
+- **Level 1 — Skip optional VERIFY steps:** Trigger if context compaction has occurred 3+ times in this session, OR if the VERIFY loop-back budget is exhausted and PACKAGE has not started. Execute VERIFY Steps 1-3 (core claim verification) but skip Step 5 (temporal supersession) and Step 6 (retry). This implicitly bypasses Step 6, which requires VERIFY Step 3 results to trigger. Document skipped steps in Limitations.
+- **Level 2 — Skip VERIFY entirely:** Trigger if SYNTHESIZE has just completed AND both (a) context compaction has occurred 3+ times AND (b) RETRIEVE required retries for >50% of sub-agents. Proceed directly to PACKAGE with a prominent "Unverified — emergency synthesis" note. This bypasses Step 6 entirely — document in Limitations that neither VERIFY nor Step 6 was executed. Run `validate_report.py` (structural check) but skip `verify_citations.py` (which depends on VERIFY output).
+- **Level 3 — Checkpoint and exit:** If PACKAGE itself cannot be completed (the session is about to terminate), save a detailed checkpoint and any partial files. The checkpoint protocol ensures partial work is recoverable in a subsequent session.
+
+**Minimum viable report:** The minimum useful output requires both SYNTHESIZE (connected analysis, not raw source notes) and PACKAGE (formatted report). If SYNTHESIZE is not yet complete when budget pressure is detected, complete SYNTHESIZE first, then proceed directly to PACKAGE. Never skip SYNTHESIZE to jump to PACKAGE — a PACKAGE of raw TRIANGULATE output is worse than a checkpoint.
+
+**Priority order when budget is constrained:** SYNTHESIZE + PACKAGE (minimum viable) > VERIFY Steps 1-3 (core verification) > CRITIQUE/REFINE > VERIFY Steps 4-6 (optional verification). Never sacrifice having a complete report for more verification passes.
+
+**This is a safety net, not a normal operating mode.** With --max-turns 200, emergency synthesis should rarely trigger. Its purpose is to guarantee output even in worst-case scenarios (excessive context compaction, multiple sub-agent retries, unexpected API slowness).
+
 ---
 
 ## Metacognitive Cycling Protocol (Think2)
@@ -71,7 +97,7 @@ Academic research on LLM self-correction shows that unstructured "think step-by-
 
 This is NOT additional time — it's structuring the thinking that already happens into a more effective pattern. The EVALUATE step's output feeds directly into the next phase's PLAN step, creating a continuous improvement loop across the pipeline.
 
-**Note on MONITOR:** Unlike PLAN and EVALUATE (which have explicit checkpoints), MONITOR operates continuously during execution. Check against phase goals and predicted failure modes whenever you complete a sub-step. The most valuable MONITOR points are: during RETRIEVE when collecting parallel results (are sub-agents producing output?), during TRIANGULATE when resolving contradictions (am I anchoring on the first source?), during SYNTHESIZE when building arguments (am I extrapolating beyond the evidence?), during REFINE when applying fixes (is this fix introducing new inconsistencies?), during VERIFY when processing sub-agent results (is confirmation bias affecting my interpretation?), and during VERIFY Step 5 when running supersession searches (am I spending the budget on the most important claims?).
+**Note on MONITOR:** Unlike PLAN and EVALUATE (which have explicit checkpoints), MONITOR operates continuously during execution. Check against phase goals and predicted failure modes whenever you complete a sub-step. The most valuable MONITOR points are: during RETRIEVE when collecting parallel results (are sub-agents producing output?), during TRIANGULATE when resolving contradictions (am I anchoring on the first source?), during SYNTHESIZE when building arguments (am I extrapolating beyond the evidence?), during REFINE when applying fixes (is this fix introducing new inconsistencies?), during VERIFY when processing sub-agent results (is confirmation bias affecting my interpretation?), during VERIFY Step 5 when running supersession searches (am I spending the budget on the most important claims?), and from SYNTHESIZE onward when assessing budget (see Budget Awareness and Emergency Synthesis — should optional steps be skipped to guarantee output?).
 
 ---
 
