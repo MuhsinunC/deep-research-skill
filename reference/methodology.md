@@ -630,16 +630,39 @@ Follow-up Search → Write findings to file → Follow-up Search → Write findi
 **If a sub-agent hangs indefinitely** (no response returned after the synchronous call — rare with the synchronous path, but possible due to [API streaming stalls](https://github.com/anthropics/claude-code/issues/25979)):
 - No recovery action is available within this session — the pipeline is blocked by the synchronous call. The checkpoint protocol ensures partial work from earlier phases is recoverable in a subsequent session.
 
-#### 3. Blocked Site Handling (403 Errors)
+#### 3. Blocked Site Handling (403 Errors + Anti-Bot Fallback Ladder)
 
-When a WebFetch returns a 403, paywall, or access-denied error:
+The browser tool fallback ladder for sites that block WebFetch or Chrome MCP. This extends the user's global `~/.claude/CLAUDE.md` "Browser Tool Fallback Order" rule with research-pipeline-specific guidance.
+
+**Tier 1 — WebFetch:** Default for all fetches. Also: before giving up on a site, check for lightweight alternatives:
+- Reddit: try `old.reddit.com` URL rewrite OR append `.json` to the thread URL (public JSON endpoint)
+- Hacker News: use the Algolia HN API (`https://hn.algolia.com/api/v1/search?query=...`)
+- Blogs: check for `/feed.xml` or `/rss` endpoints
+- Documentation sites: check for a raw markdown source on GitHub
+
+**Tier 2 — Chrome MCP (`mcp__claude-in-chrome__*`):** When WebFetch returns 403 / paywall / Cloudflare challenge / login wall, OR when JavaScript rendering is required. Reuses the user's Chrome session cookies.
+
+**Tier 3 — Playwright (`mcp__plugin_playwright_playwright__*`):** FALLBACK when Chrome MCP itself gets blocked by anti-bot detection. Sites commonly requiring Playwright: Reddit (main www.reddit.com, if `old.reddit.com` didn't work), X/Twitter, LinkedIn, Quora, Instagram, Threads. Playwright runs a clean headless browser that bypasses anti-bot fingerprinting the Chrome extension can't.
+
+**Detection criteria for escalating Tier 2 → Tier 3:**
+- Page text contains "Just a moment...", "Checking your browser", "Verify you are human", or similar Cloudflare/Turnstile interstitial markers
+- Page text is a login wall when an anonymous public page was expected
+- `get_page_text` returns substantially less content than expected (e.g., <500 chars on an article page)
+- DOM contains DataDome / PerimeterX / hCaptcha / reCAPTCHA challenge widgets
+- HTTP 403/429/503 accompanied by bot-detection content (NOT a genuine auth error — Playwright has no credentials either, so if the site legitimately requires login, document the gap and move on)
+
+**Step-by-step protocol when a WebFetch fails:**
 1. **Write what you already have** to your output file immediately
-2. If browser automation tools are available (e.g., `mcp__claude-in-chrome`), try the original URL via browser
-3. Otherwise, try ONE alternative URL for the same information
-4. **Write again** after the attempt
-5. Move on — do NOT try multiple alternative URLs in a row without writing
+2. Try Tier 1 alternatives (old.reddit.com, .json endpoint, RSS feed, archive.org if appropriate) — ONE alternative only
+3. If Tier 1 alternatives fail: try Tier 2 Chrome MCP
+4. If Chrome MCP returns any of the anti-bot detection markers listed above: try Tier 3 Playwright
+5. If Playwright also fails OR Playwright MCP is not available: document the gap in your output file explicitly ("Source X was unreachable via WebFetch, Chrome MCP, and Playwright. Content not captured.") and move on
+6. **Write again** after each attempt
+7. Move on — do NOT try multiple URLs at the same tier in a row without writing
 
-This prevents the failure mode where an agent enters a retry loop on blocked sites, wasting context and time without producing output.
+**Important:** Do NOT attempt to bypass paid paywalls (NYT, WSJ, FT, paid Substack, paid Medium). Those are not bot-detection walls; they are intentional access controls for paid content. Escalating to Playwright for these is both unethical and pointless (Playwright has no subscription credentials).
+
+This prevents the failure mode where an agent enters a retry loop on blocked sites, wasting context and time without producing output. It also prevents the silent-skip failure mode where an agent gives up on a tier-2-blocked site without trying Tier 3.
 
 #### Phase 3 Completion Gate
 
