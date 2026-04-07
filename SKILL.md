@@ -178,7 +178,7 @@ BRIEF
 Then spawn:
 ```
 Bash(run_in_background: true):
-CLAUDE_CODE_EFFORT_LEVEL=max claude -p "$(cat /tmp/research-brief-${UUID8}.txt)" --model opus --effort max --max-turns 200 --dangerously-skip-permissions < /dev/null 2>/tmp/research-${UUID8}.err | tee /tmp/research-${UUID8}.log
+CLAUDE_CODE_EFFORT_LEVEL=max claude -p "$(cat /tmp/research-brief-${UUID8}.txt)" --model opus --effort max --dangerously-skip-permissions < /dev/null 2>/tmp/research-${UUID8}.err | tee /tmp/research-${UUID8}.log
 ```
 
 **Why `--model opus --effort max` is explicit (and `CLAUDE_CODE_EFFORT_LEVEL=max` is also set inline):**

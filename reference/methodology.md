@@ -48,7 +48,9 @@ This selective rollback approach prevents the sunk-cost fallacy of continuing re
 
 ## Budget Awareness and Emergency Synthesis
 
-The pipeline runs in a `claude -p` session with `--max-turns 200`. While 200 turns provides generous headroom (deep mode historically required approximately 50-80 turns, though adversarial verification, pro/con pairs, and DRA rubrics may increase this), context compaction, sub-agent spawning, retry loops, and Step 6 can consume turns unpredictably. The pipeline has no API to query remaining turns, so budget awareness uses observable proxy signals.
+The pipeline runs in a `claude -p` session with **no `--max-turns` limit** (removed deliberately — see rationale below). Claude Code terminates naturally when the pipeline completes; any turn cap would cut research off mid-pipeline and leave claims unverified, retries incomplete, or Phase 8 PACKAGE unfinished. The risk of infinite loops is negligible in this well-defined 10-phase pipeline, so the cost of a max-turns limit (cutting off real research) exceeds its benefit (preventing hypothetical loops).
+
+Budget awareness in this skill is NOT about token/turn caps — the spawned subprocess is allowed to run as long as it needs. Instead, "budget awareness" here refers to graceful degradation when the pipeline detects it is approaching fundamental resource limits (context compaction threshold, sub-agent retry exhaustion, VERIFY loop-back budget exhausted). Context compaction, sub-agent spawning, retry loops, and Step 6 can consume turns unpredictably, so budget awareness uses observable proxy signals rather than a turn counter.
 
 **Positive-path guard (MUST NOT trigger):** If the pipeline has NOT experienced ANY of the following, emergency synthesis MUST NOT be triggered — the pipeline is operating within normal parameters:
 - Context compaction has NOT occurred
@@ -70,7 +72,7 @@ This guard prevents false budget exhaustion from degrading report quality on nor
 
 **Priority order when budget is constrained:** SYNTHESIZE + PACKAGE (minimum viable) > VERIFY Steps 1-3 (core verification) > CRITIQUE/REFINE > VERIFY Steps 4-6 (optional verification). Never sacrifice having a complete report for more verification passes.
 
-**This is a safety net, not a normal operating mode.** With --max-turns 200, emergency synthesis should rarely trigger. Its purpose is to guarantee output even in worst-case scenarios (excessive context compaction, multiple sub-agent retries, unexpected API slowness).
+**This is a safety net, not a normal operating mode.** With no turn cap, emergency synthesis should rarely trigger — it's only intended for worst-case scenarios (excessive context compaction, multiple sub-agent retries, unexpected API slowness). Its purpose is to guarantee output even when fundamental resource limits are hit.
 
 ---
 
@@ -1311,15 +1313,20 @@ BRIEF
 #   CLAUDE_CODE_EFFORT_LEVEL=max so the spawn AND its sub-agents (Sonnet, which
 #   inherits this env var and maps max → its actual max which is "high") get the
 #   correct effort level.
-# --max-turns 200: Generous budget for compressed pipeline. Turns don't cost extra (only tokens do).
 # --dangerously-skip-permissions: Required — subprocess has no interactive stdin.
+# NOTE: Do NOT add --max-turns. Claude Code terminates naturally when the pipeline
+# completes; any max-turns limit will cut off mid-research (possibly leaving claims
+# unverified, retries incomplete, or Phase 8 PACKAGE unfinished). The deep research
+# pipeline can legitimately require hundreds of turns for max-effort runs with
+# verification retries, and a hard cap only exists to prevent infinite loops —
+# which are not a risk in this well-defined 10-phase pipeline.
 CLAUDE_CODE_EFFORT_LEVEL=max claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" \
-  --model opus --effort max --max-turns 200 \
+  --model opus --effort max \
   --dangerously-skip-permissions < /dev/null 2>/tmp/retry-${UUID8}.err
 ```
 
 **Failure detection:** After the subprocess exits, check:
-1. Non-zero exit code (crash or max-turns exhausted) → fall back to Candidate A
+1. Non-zero exit code (crash) → fall back to Candidate A
 2. `candidate_B.md` does not exist or is <500 words → empty/incomplete output → fall back
 3. `candidate_B_verification.md` does not exist → incomplete VERIFY → fall back
 
