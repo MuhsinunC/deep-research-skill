@@ -449,9 +449,19 @@ Anthropic's effort levels per model (verified April 2026 from official docs):
 - **Sonnet 4.6:** `low` / `medium` / `high` — default is `high`. Sonnet does NOT support `max`.
 - **Haiku 4.5:** Effort configuration is NOT available. Effort flags are ignored.
 
-The deep research skill MUST run the lead Opus 4.6 instance at `max` effort. Default `medium` produces materially worse synthesis, weaker contradiction resolution, and less rigorous verification reasoning. The `--effort max` CLI flag must be passed at spawn time AND `CLAUDE_CODE_EFFORT_LEVEL=max` must be set inline because the Bash tool that spawns this command uses non-interactive zsh which does NOT source `~/.zshrc` and therefore does NOT inherit the user's pinned env var. Both belt-and-suspenders are required — see SKILL.md spawn command and Step 6 retry spawn command for the exact invocation.
+The deep research skill MUST run the lead Opus 4.6 instance at `max` effort. Default `medium` produces materially worse synthesis, weaker contradiction resolution, and less rigorous verification reasoning.
 
-The Task tool has NO `effort` parameter — sub-agent effort is controlled exclusively by the inherited `CLAUDE_CODE_EFFORT_LEVEL` env var. Since Sonnet sub-agents inherit the parent's `CLAUDE_CODE_EFFORT_LEVEL=max`, they will use Sonnet's highest available level (`high`, since Sonnet does not support `max`). This is the intended behavior — Sonnet's `high` is its quality ceiling and is also Sonnet's default, so sub-agents always run at the highest possible quality.
+There are TWO distinct execution contexts to think about:
+
+1. **The PARENT Claude Code session that invokes this skill.** The frontmatter `effort: max` in `SKILL.md` line 4 applies here — it tells the parent session to run at max while preparing the Research Brief and orchestrating the spawn. The parent loads SKILL.md as its driving skill, so the frontmatter is honored.
+
+2. **The SPAWNED `claude -p` subprocess that runs the 10-phase pipeline.** This is a brand-new Claude Code session that does NOT load SKILL.md as its driving skill — it just executes the prompt passed via `-p`. Therefore the frontmatter has NO effect on the subprocess. The subprocess gets its effort from TWO mechanisms applied at spawn time:
+   - `CLAUDE_CODE_EFFORT_LEVEL=max` prepended inline on the spawn command (because the Bash tool runs `zsh -c` which does NOT source `~/.zshrc`, so the user's pinned env var is NOT propagated automatically)
+   - `--effort max` flag on the CLI (redundant safety net, also self-documenting)
+
+Both belt-and-suspenders are required for the subprocess — see SKILL.md spawn command and Step 6 retry spawn command for the exact invocation. The same dual mechanism applies to both spawns.
+
+The Task tool has NO `effort` parameter — sub-agent effort is controlled exclusively by the env var inherited from the spawning subprocess. When Sonnet sub-agents inherit `CLAUDE_CODE_EFFORT_LEVEL=max` from the subprocess, the expected behavior is that Sonnet runs at its highest available level (`high`, since `max` is not valid for Sonnet) — this maps to the same level as Sonnet's default `high`. The exact fallback semantics for an unsupported effort value have not been independently verified against an official Anthropic doc as of April 2026; either way, Sonnet sub-agents end up at their quality ceiling.
 
 **NOT recommended: Haiku 4.5 for any sub-agent (untested prior, not empirical conclusion).** Haiku 4.5 was NOT included in the April 2026 A/B test. A priori, its reasoning depth is likely below the threshold needed for DRA failure mode classification (G4/G5/T2 require careful semantic comparison), adversarial argumentation (defensible counter-claims, not just any contradiction), and source credibility judgment. Additionally, Haiku does not support effort configuration at all, so we cannot guarantee its quality ceiling. A future test could evaluate Haiku for the simplest sub-tasks (URL fetching + literal text matching), but the incremental cost savings over Sonnet (additional 60%) are not worth the risk to the verification path until empirically validated. Sonnet captures most of the cost savings (40% vs Opus) without this risk.
 

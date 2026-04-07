@@ -185,12 +185,31 @@ CLAUDE_CODE_EFFORT_LEVEL=max claude -p "$(cat /tmp/research-brief-${UUID8}.txt)"
 
 **Model — hybrid architecture:** The lead agent (this spawned `claude -p` instance) runs on **Opus 4.6** for ALL phases — the hybrid split is about WHO (lead vs sub-agent) not WHEN (which phase). Sub-agents spawned via the Task tool inside the pipeline (Phase 3 retrieval, Phase 6 gap-filling, Phase 7.5 citation verifiers, Phase 7.5 adversarial agent) run on **Sonnet 4.6**. The methodology file enforces `model="sonnet"` on every Task tool spawn. Hardcoding `--model opus` here ensures the hybrid setup works regardless of the user's default model.
 
-**Effort — max for the lead, default high for sub-agents:**
-- The lead Opus 4.6 instance MUST run at `max` effort (Opus's highest level, only available on Opus 4.6). The default for Opus is `medium`, which produces materially worse research output. The skill SKILL.md frontmatter sets `effort: max`, but we ALSO pass `--effort max` on the CLI and `CLAUDE_CODE_EFFORT_LEVEL=max` inline because the Bash tool runs `zsh -c` (non-interactive) which does NOT source `~/.zshrc`. Without all three belt-and-suspenders, the spawned subprocess silently falls back to medium effort.
-- Sub-agents (Sonnet 4.6 via Task tool) automatically use Sonnet's highest effort `high` (which is also Sonnet's default — Sonnet does NOT support `max`, that level is Opus-only). The Task tool has no `effort` parameter, so sub-agents inherit the env var `CLAUDE_CODE_EFFORT_LEVEL=max` from this spawn — but Sonnet maps `max` → `high` since `max` is not valid for Sonnet. This is the intended behavior.
-- Haiku 4.5 does NOT support effort configuration at all, but we don't use Haiku in this pipeline.
+**Effort — max for the lead, high for sub-agents (two distinct execution contexts):**
 
-**If you do not have Opus access:** Change `--model opus` to `--model sonnet` AND `--effort max` to `--effort high` AND `CLAUDE_CODE_EFFORT_LEVEL=max` to `CLAUDE_CODE_EFFORT_LEVEL=high`. The skill will still function correctly with the Sonnet-only fallback architecture (lead and sub-agents both on Sonnet at high effort), but you will lose the lead-agent quality edge described in the Phase 3 "Why Opus for the lead agent" section. This is a graceful degradation, not a failure mode.
+There are TWO separate Claude Code sessions involved here, each with its own effort configuration:
+
+1. **The PARENT session that invokes this skill** (for example, the user's interactive Claude Code session that triggered `/deep-research` or saw "use the deep-research skill"). The frontmatter `effort: max` on line 4 applies to THIS session — it tells the parent session to run at max effort while it prepares the Research Brief and orchestrates the spawn. The parent loads SKILL.md as its driving skill, so the frontmatter is honored here.
+
+2. **The SPAWNED `claude -p` subprocess that runs the 10-phase pipeline.** This is a brand-new Claude Code session that does NOT load this SKILL.md as its driving skill — it just executes the prompt passed via `-p`. Therefore the frontmatter `effort: max` does NOTHING for the subprocess. The subprocess gets its effort from TWO mechanisms:
+   - `CLAUDE_CODE_EFFORT_LEVEL=max` prepended inline on the spawn command
+   - `--effort max` flag on the CLI
+
+   Both are required because:
+   - The Bash tool runs `zsh -c` (non-interactive), which does NOT source `~/.zshrc`. The user's pinned `CLAUDE_CODE_EFFORT_LEVEL=max` from `~/.zshrc` is therefore NOT propagated from the parent shell to the subprocess automatically. Inline-prepending the env var fixes this.
+   - The CLI `--effort max` flag is a redundant safety net — if a future Claude Code version changes env var precedence rules, the explicit CLI flag still wins. It is also self-documenting in the spawn command.
+
+**Sub-agents (Sonnet 4.6 via Task tool) inside the spawned subprocess:** The Task tool has NO `effort` parameter, so sub-agents inherit the env var from the subprocess (which we set to max). Sonnet 4.6 only supports `low` / `medium` / `high` (not `max`); when an unsupported value like `max` is passed, the expected behavior is that Sonnet runs at its highest available level (`high`), which is also Sonnet's default. This has not been independently verified against an official Anthropic doc as of this writing — if the actual fallback turns out to be Sonnet's default `high`, the result is the same. Either way, sub-agents end up at Sonnet's quality ceiling.
+
+**Haiku 4.5** does NOT support effort configuration at all (effort flags are ignored). We don't use Haiku in this pipeline anyway.
+
+**If you do not have Opus access:** Change FOUR things:
+1. The frontmatter on line 4 from `effort: max` → `effort: high` (so the parent session that invokes this skill doesn't request an unsupported effort level)
+2. `--model opus` → `--model sonnet` on the spawn command
+3. `--effort max` → `--effort high` on the spawn command
+4. `CLAUDE_CODE_EFFORT_LEVEL=max` → `CLAUDE_CODE_EFFORT_LEVEL=high` on the spawn command
+
+The skill will still function correctly with the Sonnet-only fallback architecture (lead and sub-agents both on Sonnet at high effort), but you will lose the lead-agent quality edge described in the Phase 3 "Why Opus for the lead agent" section. This is a graceful degradation, not a failure mode.
 
 ### How It Works
 
