@@ -607,7 +607,11 @@ Follow-up Search → Write findings to file → Follow-up Search → Write findi
 **NEVER perform a follow-up search without first writing all pending results to disk.** Context compaction can destroy unsaved search results. Writing before each follow-up ensures no findings are lost, even if the session is interrupted or context is compacted.
 
 **For sub-agents** spawned via the Task tool, the write-after-search pattern applies to every search since sub-agents execute sequentially. Include this instruction in their prompt along with a specific output file path (e.g., `/tmp/research_agent_N.md`):
-> "Write all findings to [OUTPUT_FILE_PATH]. After every search or fetch, immediately write your findings to your output file. Never accumulate multiple search results in memory without saving. The pattern is: Search → Edit file → Search → Edit file. No exceptions."
+> "Write all findings to [OUTPUT_FILE_PATH]. After every search or fetch, immediately write your findings to your output file. Never accumulate multiple search results in memory without saving. The pattern is: Search → Edit file → Search → Edit file. No exceptions.
+>
+> EFFORT REINFORCEMENT (MANDATORY): Operate at MAXIMUM reasoning effort. Do not skip thinking steps. Take time to verify each finding against the source. Prioritize thoroughness over speed."
+
+(The EFFORT REINFORCEMENT clause is required in EVERY sub-agent prompt — see Phase 3 NOTE item #6 and the Heterogeneous Tool Assignment section for full rationale.)
 
 #### 2. Sub-Agent Failure Handling
 
@@ -1086,7 +1090,8 @@ Verification sub-agents must receive ONLY the claims and their cited source URLs
 > Status: VERIFIED/QUESTIONABLE/UNVERIFIABLE/CONTRADICTED
 > Evidence: [direct quote from the source, in quotation marks, with the surrounding sentence for context. Do NOT paraphrase — copy the exact text that supports or contradicts the claim.]
 > DRA Flags: [List any triggered failure modes, e.g., 'G4: number differs — source says 15%, claim says 25%' or 'NONE' if no failures detected]
-> ---"
+>
+> EFFORT REINFORCEMENT (MANDATORY): Operate at MAXIMUM reasoning effort. Do not skip thinking steps. Fetch each source before judging — do not rely on training data even if you think you remember the content. Take time to compare claim text to source text word-by-word for quantitative claims. Prioritize correctness over speed."
 
 **Adversarial Refutation Agent:**
 
@@ -1122,7 +1127,8 @@ In addition to citation verification sub-agents, spawn ONE adversarial refutatio
 > Adversarial Status: REFUTED/WEAKENED/WITHSTOOD
 > Search Queries Used: [list the queries you tried]
 > Contradicting Evidence: [URL and direct quote if REFUTED/WEAKENED, or 'None found after N searches' if WITHSTOOD]
-> ---"
+>
+> EFFORT REINFORCEMENT (MANDATORY): Operate at MAXIMUM reasoning effort. Do not skip thinking steps. Try multiple search angles before reporting WITHSTOOD — at minimum 3 distinct queries with different framings. The whole point of this agent is to find what the citation verifiers missed; lazy WITHSTOOD reports defeat the purpose of the entire pipeline. Prioritize correctness over speed."
 
 Sub-agents follow the same reliability protocols: write-after-search, designated output file paths.
 
