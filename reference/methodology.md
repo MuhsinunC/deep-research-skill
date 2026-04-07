@@ -179,7 +179,23 @@ Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`
 1. Decompose the question into core components
 2. Identify stakeholder perspectives
 3. Define scope boundaries (what's in/out)
-4. Establish success criteria
+4. Establish **concrete topic-specific acceptance criteria** — not generic quality gates, but "what evidence would make the answer 'sufficient' for THIS topic?" These must reference specific entities, numbers, time bounds, or comparisons from the question itself.
+
+   **Topic-specific examples** (note how each names something from the question):
+   - "Report must cover both [specific sub-topic A] and [specific sub-topic B] identified as central in SCOPE"
+   - "Comparison table of [product X] vs [product Y] on metrics [A, B, C]"
+   - "The answer to [specific research question] must cite [a specific regulatory body / specific journal / vendor documentation]"
+   - "Resolution of any direct contradictions between source A and source B identified in TRIANGULATE"
+   - "At least one source must be dated within the last [domain half-life] days for the [time-sensitive sub-topic]"
+
+   **NOT acceptance criteria** (these are global quality gates and live elsewhere):
+   - "At least 3 peer-reviewed sources for every claim" (global FFS threshold)
+   - "All claims have primary sources" (Source Preference Heuristics)
+   - "No single-source claims on critical findings" (already enforced in Phase 4 TRIANGULATE)
+
+   **Derivation procedure (when domain knowledge is unavailable):** A headless agent on an unfamiliar topic should derive criteria mechanically. For each sub-question identified in Activity 1, ask: "What specific evidence (a specific source type, a specific entity comparison, a specific time-bounded claim) would make THIS sub-question definitively answered?" Convert each answer into one acceptance criterion. **Smell test:** if a criterion could be reused verbatim on an unrelated research topic, it's a global quality gate, not a topic-specific criterion — reword or drop it.
+
+   Acceptance criteria are checked at Phase 7.5 VERIFY (Step 4 Completeness Check) and Phase 8 PACKAGE to determine whether the research is complete. They are distinct from global quality gates (FFS thresholds, credibility scores). Write 3-7 concrete, checkable items.
 5. List key assumptions to validate
 6. Classify topic time domain for temporal credibility decay (see Source Preference Heuristics). For multi-domain topics, assign per sub-question: e.g., "regulatory aspect = Legal/5yr, tooling aspect = Tech/90d"
 
@@ -204,12 +220,76 @@ Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`
 4. Plan triangulation approach
 5. Estimate time/effort per phase
 6. Define quality gates
+7. Write `plan.md` as a **living artifact** with three tracking sections — two tables (Task Ledger, Verification Log) and one freeform log (Decision Log). See structure below. This file is updated throughout the pipeline — it is not a static document.
 
-**Extended Thinking Task (Think2 PLAN step):** Review any flagged concerns from SCOPE's evaluation. Then branch into multiple potential research paths — consider which paths are most likely to yield actionable evidence and which are dead ends. Converge on the optimal strategy before proceeding. Predict: which query formulations are most likely to fail? Which source types will be hardest to find?
+**Living plan artifact structure:** Write `plan.md` to the output directory with the following sections:
 
-**Think2 EVALUATE (after activities):** Does the plan cover all sub-questions from SCOPE? Count: how many search angles were identified? Are there any single-source dependencies in the plan? Flag gaps for RETRIEVE.
+```markdown
+# Research Plan: [topic]
 
-**Output:** Research plan with prioritized investigation paths. Save checkpoint.
+## Questions
+1. [Primary research question]
+2. [Sub-question 1]
+3. [Sub-question 2]
+...
+
+## Strategy
+- Sub-agent lens allocations (academic/practitioner/critical/historical)
+- Search query decomposition (8 angles + pro/con pairs)
+- Expected rounds of RETRIEVE
+
+## Acceptance Criteria (copied from Phase 1 SCOPE Activity 4 — topic-specific only)
+- [ ] [criterion 1 from SCOPE — must be topic-specific, not a global quality gate]
+- [ ] [criterion 2 from SCOPE]
+- [ ] [criterion 3 from SCOPE]
+- [ ] [...up to 7 items]
+
+(3-7 items. Do NOT restate global quality gates here — those live in Phase 2 Activity 6 and the FFS thresholds. Only topic-specific criteria belong here.)
+
+## Task Ledger
+| ID | Owner | Task | Status | Output |
+|---|---|---|---|---|
+| T1 | lead | Phase 1 SCOPE | done | _checkpoint.json (SCOPE) |
+| T2 | lead | Phase 2 PLAN | in_progress | plan.md |
+| T3 | academic-lens sub-agent | Phase 3 academic retrieval | pending | ${OUTPUT_DIR}/research_agent_1.md |
+| T4 | practitioner-lens sub-agent | Phase 3 practitioner retrieval | pending | ${OUTPUT_DIR}/research_agent_2.md |
+| ... | ... | ... | ... | ... |
+
+**Task Status vocabulary:**
+- `pending` — assigned but not yet started
+- `in_progress` — currently being worked on
+- `done` — completed with output written
+- `blocked` — could not complete due to a technical obstacle (paywall, no results, tool error). Always include a one-line reason.
+- `covered_by` — another task already addressed the same content. Always include a pointer to the covering task ID (e.g., `covered_by T5`). **Note:** This is distinct from VERIFY Step 5's uppercase `SUPERSEDED` status, which means a claim has been superseded by newer evidence — different concept entirely.
+
+## Verification Log
+| Item | Citation Status | Adversarial Status | Supersession Status | Evidence |
+|---|---|---|---|---|
+| [Critical claim / computation / figure] | VERIFIED / QUESTIONABLE / CONTRADICTED / UNVERIFIABLE | WITHSTOOD / WEAKENED / REFUTED / not-tested | OUTDATED / SUPERSEDED / current / not-checked | [path to verification artifact or URL] |
+
+A single claim may have all three statuses simultaneously (e.g., citation=VERIFIED, adversarial=REFUTED, supersession=current). Use `not-tested` or `not-checked` for dimensions that did not apply to a given claim.
+
+## Decision Log
+(Freeform append-only log. Captures notable decisions as they happen: scope adjustments, contradictions resolved, claims dropped, supersession findings, Step 6 retry triggered, outline restructurings, etc. NOT a table — preserve expressiveness.)
+```
+
+**Extended Thinking Task (Think2 PLAN step):** Review any flagged concerns from SCOPE's evaluation. Then branch into multiple potential research paths — consider which paths are most likely to yield actionable evidence and which are dead ends. Converge on the optimal strategy before proceeding. Predict: which query formulations are most likely to fail? Which source types will be hardest to find? Review and refine the topic-specific acceptance criteria from SCOPE — are they concrete enough to tell "done" from "not done"? Copy them into plan.md's Acceptance Criteria section verbatim.
+
+**Think2 EVALUATE (after activities):** Does the plan cover all sub-questions from SCOPE? Count: how many search angles were identified? Are there any single-source dependencies in the plan? Are topic-specific acceptance criteria concrete enough to tell "done" from "not done"? Flag gaps for RETRIEVE.
+
+**Output:** Living research plan artifact (`plan.md`) with Questions, Strategy, Acceptance Criteria, Task Ledger, Verification Log, and Decision Log (three tracking sections — two tables and one freeform log). Save checkpoint.
+
+**Plan artifact maintenance across phases:** The plan is a **living document**, not a static outline. Every subsequent phase updates the relevant sections:
+- **Phase 3 RETRIEVE:** Update Task Ledger rows to `done`, `blocked`, or `covered_by <TaskID>` as sub-agents complete. Never leave pending rows without a status update.
+- **Phase 4 TRIANGULATE:** Append resolved contradictions to Decision Log. Add verification entries for claims that were cross-referenced.
+- **Phase 4.5 OUTLINE REFINEMENT:** Log outline adaptations to Decision Log with evidence rationale. If sections were added/removed/reordered, note the evidence source that prompted each change.
+- **Phase 5 SYNTHESIZE:** Note which claims are load-bearing for conclusions in Decision Log.
+- **Phase 6 CRITIQUE:** Add critique findings to Decision Log. Mark any addressed-later items as `blocked` until REFINE.
+- **Phase 7 REFINE:** Update Decision Log entries from CRITIQUE with resolution status.
+- **Phase 7.5 VERIFY:** Populate Verification Log with per-claim status across the three independent dimensions (citation / adversarial / supersession). Add Step 5 supersession findings and Step 6 retry decisions to Decision Log.
+- **Phase 8 PACKAGE:** Final Decision Log entry documenting delivery status and any remaining open issues.
+
+**Step 6 retry subprocess carve-out:** If running as a Phase 7.5 Step 6 Verifier-Guided Retry subprocess, do NOT write `plan.md` or the provenance sidecar — only write `candidate_B.md` and `candidate_B_verification.md` as specified in the Retry Brief. The parent session retains ownership of the plan artifact and provenance file. The subprocess's findings will be merged into the parent's Decision Log at Phase 6C merge time.
 
 ---
 
@@ -524,6 +604,25 @@ This prevents the failure mode where an agent enters a retry loop on blocked sit
 
 **Maximum 1 retry per failed sub-agent.** Do not retry more than once — if two attempts fail, the information may not be available, and further retries waste budget.
 
+**No silent task skipping within a sub-agent's assignment (applies to ALL sub-agent phases — Phase 3 RETRIEVE, Phase 6 CRITIQUE gap-filling, Phase 7.5 VERIFY):** When a sub-agent is assigned multiple tasks (e.g., "cover angles A, B, C" or "research topics X, Y, Z"), it MUST report on every assigned task — not silently drop difficult or redundant ones. If a task cannot be completed, the sub-agent must explicitly mark it as `blocked` (technical obstacle, paywall, no results) or `covered_by <other-task-id>` (another task already addressed the same ground, possibly in another sub-agent) in its output, with a one-line reason.
+
+**Structured detection format (REQUIRED):** Sub-agent prompts MUST require a TASK STATUS SUMMARY block at the end of their output for the lead agent to parse mechanically. Include this verbatim in the sub-agent prompt:
+
+> "Your task list contains [N] items: [list with task IDs T_a, T_b, T_c, ...]. At the end of your output file, append a clearly delimited block:
+>
+> ```
+> ## TASK STATUS SUMMARY
+> - T_a: done (findings in section 'X')
+> - T_b: blocked (Elsevier paywall, no alternative source found within 2 attempts)
+> - T_c: covered_by T_a (same benchmark already addressed in Section X — pointer rather than duplicate)
+> ```
+>
+> Every assigned item MUST appear in this block with status `done`, `blocked`, or `covered_by <other-task-id>`. Do NOT silently skip, merge, or drop any assigned item — the lead agent will parse this block to update the Task Ledger in plan.md. A missing item is treated as a failure and triggers a replacement attempt."
+
+After sub-agents complete, the lead agent parses the TASK STATUS SUMMARY block from each sub-agent output and reconciles against the Task Ledger in `plan.md`. Every pending row from this phase should now be `done`, `blocked`, or `covered_by <task-id>` — never left as `pending`. If a row is still pending or missing from the SUMMARY block, the sub-agent silently skipped it; reassign it or mark it `blocked` with an explicit reason.
+
+**`blocked` does NOT trigger retry:** A `blocked` task counts as a documented coverage gap. It does NOT trigger a full sub-agent retry (retries are at the sub-agent level — see "Maximum 1 retry per failed sub-agent" above). A `blocked` task may trigger a targeted follow-up search in Phase 4.5 Draft-Guided Query Refinement if the gap is material to a load-bearing claim, otherwise it is documented in Limitations.
+
 The FFS (First Finish Search) pattern above applies only to the initial parallel search burst (Step 1). It does NOT grant permission to skip ahead while sub-agents (Step 2) are still running. Sub-agent results are deep-dive evidence that triangulation depends on for cross-referencing.
 
 **Think2 EVALUATE (after activities):** Count sources gathered vs. target. Assess: what percentage of PLAN's search angles yielded results? Which angles came up empty — is that exhaustion or bad queries? What does the next phase (TRIANGULATE) need to watch for?
@@ -790,9 +889,10 @@ Simulate 2-3 specific critic personas relevant to the topic:
 If critique identifies a critical knowledge gap (not just a writing issue):
 1. **Spawn 1-2 targeted sub-agents** via the Task tool to investigate the specific gap. Each sub-agent gets a focused prompt describing exactly what's missing and where to look. Include Source Preference Heuristics from Phase 3 in the sub-agent prompt.
 2. Sub-agents follow the same write-after-search protocol and output file path requirements as Phase 3 sub-agents.
-3. Wait for gap-filling sub-agents to complete (same sub-agent failure handling applies — see Phase 3 Operational Reliability Protocol).
-4. Integrate new evidence into the existing research before proceeding to Phase 7.
-5. **Time-box to 5 minutes** (sub-agents need startup time, so 3 minutes is too tight). If gaps cannot be filled, document them explicitly as limitations in the final report.
+3. **The no-silent-skip rule from Phase 3 Completion Gate applies here** — gap-filling sub-agent prompts MUST require a TASK STATUS SUMMARY block, and the lead agent MUST reconcile against the Task Ledger in `plan.md` before proceeding.
+4. Wait for gap-filling sub-agents to complete (same sub-agent failure handling applies — see Phase 3 Operational Reliability Protocol).
+5. Integrate new evidence into the existing research before proceeding to Phase 7.
+6. **Time-box to 5 minutes** (sub-agents need startup time, so 3 minutes is too tight). If gaps cannot be filled, document them explicitly as limitations in the final report.
 
 This is more powerful than the original "return to Phase 3" approach because targeted sub-agents can investigate specific deficiencies in parallel without restarting the entire retrieval pipeline.
 
@@ -884,6 +984,8 @@ Record the DRA tags alongside each claim for use in the verification prompt.
 ### Step 2: Spawn Citation Verification Sub-Agents
 
 Spawn 2-3 citation verification sub-agents PLUS 1 adversarial refutation agent in the same synchronous parallel spawn (all in a single message). The citation verifiers check existing sources; the adversarial agent independently searches for contradicting evidence the original retrieval may have missed. **Default to 3 citation verifiers if the atomic claim count exceeds 14**, since the per-verifier batch cap of 5-7 (see Batch composition below) would otherwise be exceeded with only 2 agents.
+
+**The no-silent-skip rule from Phase 3 Completion Gate applies to all verification sub-agents.** Each verifier prompt MUST require a TASK STATUS SUMMARY block listing every assigned claim by ID with status `done` / `blocked` / `covered_by <claim-id>`. The lead agent reconciles the SUMMARY against the Task Ledger before processing results. A claim with no SUMMARY entry is treated as silently skipped — reassign it to another verifier or mark `blocked` with a reason.
 
 **CRITICAL — Information Asymmetry Protocol:**
 Verification sub-agents must receive ONLY the claims and their cited source URLs — NOT the full report, NOT the surrounding analysis, and NOT the report's conclusions. This prevents confirmation bias: a verifier who has read the full report will unconsciously seek to confirm its conclusions rather than genuinely checking the evidence.
@@ -1008,9 +1110,11 @@ Before looping back, check the global loop-back budget (see Step 5's shared budg
 
 ### Step 4: Completeness and Source Quality Check
 
-After claim verification, do two quick tool-grounded checks:
+After claim verification, do three quick tool-grounded checks:
 
 **Completeness check:** Re-read the original research question from Phase 1 SCOPE. List each component of the question. For each component, verify that the report addresses it with at least one finding. If a component is unaddressed, note it as a gap.
+
+**Acceptance criteria check:** Re-read the topic-specific acceptance criteria from Phase 1 SCOPE Activity 4 (mirrored in `plan.md`'s Acceptance Criteria section). For each criterion, mark it `met`, `partial`, or `unmet` based on the report content and verification results. Update the Acceptance Criteria checkboxes in `plan.md` directly. **Unmet criteria on load-bearing claims should trigger a Phase 7 REFINE loop-back** (within the shared 2-cycle budget). Partial criteria should be flagged for the Limitations section. Record the status in `plan.md`'s Acceptance Criteria section so Phase 8 PACKAGE can read it directly into the provenance sidecar without re-deriving.
 
 **Source quality check:** Count sources by type (academic, industry, journalism, blog, SEO). If >30% of sources are blogs/SEO content, note this as a limitation. If <3 source types are represented, note as limitation.
 
@@ -1202,6 +1306,37 @@ The merged report goes directly to Phase 8 (PACKAGE) — no additional full VERI
 6. Add methodology appendix
 7. Include verification results summary (per-claim status from Phase 7.5 VERIFY) in the methodology appendix, including adversarial refutation results (WITHSTOOD/WEAKENED/REFUTED) for the top claims
 8. If Step 6 (Verifier-Guided Retry) was triggered, include a methodology note: "A verification-guided retry was performed. The final report merges the strongest evidence from two independent research passes." List which claims were replaced from Candidate B.
+9. **Write provenance sidecar** alongside the final report. The sidecar filename matches the report's base filename with `.provenance.md` suffix replacing `.md`. For example, if the report is `research_report_20260406_vector-db-comparison.md`, the sidecar is `research_report_20260406_vector-db-comparison.provenance.md`. This is a separate human-readable audit trail, distinct from the JSON checkpoint.
+
+```markdown
+# Provenance: [topic]
+
+- **Verification Status:** [PASS / PASS WITH NOTES — one-line summary, displayed first for quick scanning]
+- **Date:** [YYYY-MM-DD]
+- **Mode:** [quick/standard/deep/ultradeep]
+- **Task UUID:** [UUID8]
+- **Sources consulted:** [total unique sources across all research files]
+- **Sources accepted:** [sources that survived citation verification]
+- **Sources rejected:** [count of dead links, unverifiable, or removed]
+- **Questions addressed:** [N met / M total — from Phase 1 SCOPE Activity 1]
+- **Acceptance criteria:** [list from Phase 1 SCOPE, each marked met / partial / unmet — read from plan.md's Acceptance Criteria section, NOT re-derived]
+- **Plan artifact:** [path to plan.md]
+- **Research files:** [list of intermediate research_agent_*.md files from ${OUTPUT_DIR}]
+- **Verification files:** [list of verify_*.md files, if written]
+
+### VERIFY-dependent fields (Deep/UltraDeep modes only)
+For quick and standard modes, mark these as `N/A — mode does not run VERIFY phase`:
+
+- **Loop-back cycles used:** [0-2]
+- **Step 6 retry triggered:** [yes/no — if yes, which claims were replaced from Candidate B]
+- **Claims verified:** [VERIFIED count / total atomic claims]
+- **Claims contradicted:** [count — remediated or documented in Limitations. A claim that is VERIFIED by citation but REFUTED adversarially counts here, NOT under Claims verified — adopt the harsher status to avoid overstating reliability.]
+- **Claims superseded / outdated:** [SUPERSEDED count / OUTDATED count from Step 5 temporal supersession check, if run]
+- **Adversarial refutations:** [WITHSTOOD/WEAKENED/REFUTED counts for top 3-5 claims]
+- **DRA systematic failures:** [any sub-categories with 3+ actually-failing checks (not just tagged for checking) — see Phase 7.5 Step 3], or "none"
+```
+
+The provenance sidecar is NOT the same as `_checkpoint.json` — the checkpoint is machine-readable state for resume. The provenance sidecar is human-readable audit trail for downstream consumers who want to understand what was verified, what was rejected, and how confident the report's claims are.
 
 **Verdict phrasing — clarity over generic hedging:** When presenting verified findings, use definitive language backed by the VERIFY evidence status. When presenting unverified or contradicted claims, state the uncertainty clearly in Limitations rather than hedging throughout the main prose. Generic hedging ("may suggest," "possibly," "it could be that") inserted across both true and false claims fails to differentiate them, making the report's strongest findings sound as tentative as its weakest. (See PNAS 2024 — DeVerna et al. — for narrow evidence in the fact-checking domain that hedged language on true claims and explicit uncertainty on false claims can both backfire under specific conditions. The generalization to research report prose is a design extrapolation, not a directly measured effect.)
 
@@ -1212,7 +1347,7 @@ The merged report goes directly to Phase 8 (PACKAGE) — no additional full VERI
 - **CONTRADICTED** → omit from main prose, document explicitly in Limitations with the contradicting evidence
 - **UNVERIFIABLE** → drop the claim from the main prose entirely. Document the attempted-but-failed verification in the Limitations section, e.g., "Claim X was not included because the cited source returned a 404 and no alternative source could be found within the verification budget." Do NOT keep the claim in main prose with a vague hedge like "some sources suggest" — that combines the worst of both options (the reader sees a claim but cannot trace it).
 
-**Think2 EVALUATE (after activities):** Does the report address every component of the original research question from SCOPE? Count: citations in text vs. bibliography entries — do they match? Are all VERIFY findings represented in the methodology appendix? Are supersession check results (SUPERSEDED/OUTDATED) documented alongside citation verification results? Are adversarial refutation results (WITHSTOOD/WEAKENED/REFUTED) documented for the top claims? Does the prose follow the verdict-phrasing rule — definitive for VERIFIED, labeled inline for QUESTIONABLE/SUPERSEDED, and omitted from main prose (documented in Limitations instead) for CONTRADICTED/UNVERIFIABLE? Spot-check 3-5 paragraphs against the verification results to confirm the language tier matches the claim status. Is the executive summary accurate and not overstated relative to the evidence?
+**Think2 EVALUATE (after activities):** Does the report address every component of the original research question from SCOPE? Count: citations in text vs. bibliography entries — do they match? Are all VERIFY findings represented in the methodology appendix? Are supersession check results (SUPERSEDED/OUTDATED) documented alongside citation verification results? Are adversarial refutation results (WITHSTOOD/WEAKENED/REFUTED) documented for the top claims? Confirm all acceptance criteria from Phase 1 SCOPE are accounted for in the provenance sidecar — no criterion should be omitted or left unchecked. Does the prose follow the verdict-phrasing rule — definitive for VERIFIED, labeled inline for QUESTIONABLE/SUPERSEDED, and omitted from main prose (documented in Limitations instead) for CONTRADICTED/UNVERIFIABLE? Spot-check 3-5 paragraphs against the verification results to confirm the language tier matches the claim status. Is the executive summary accurate and not overstated relative to the evidence?
 
 **Output:** Complete research report ready for use. Save final checkpoint.
 
