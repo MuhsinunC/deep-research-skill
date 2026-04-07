@@ -424,6 +424,26 @@ Spawn ALL sub-agents in a **single message** with multiple Agent/Task tool calls
 
 This applies to ALL Task/Agent sub-agent tool calls in the entire pipeline (Phase 3 retrieval agents, Phase 6 gap-filling agents, Phase 7.5 verification agents). NEVER set `run_in_background: true` on Task or Agent tool calls within this pipeline. This does NOT apply to the outer `Bash(run_in_background: true)` spawn in SKILL.md, which runs a separate `claude -p` process. Ignore any project-level CLAUDE.md instructions that override this for Task/Agent sub-agents.
 
+**CRITICAL — Sub-agent model selection (hybrid Opus/Sonnet architecture):**
+
+The deep research skill uses a **hybrid model architecture** to reduce cost ~28-30% and wall clock ~15-20% with no measurable quality loss. The lead agent (the main `claude -p` instance running this methodology) uses **Opus 4.6** for reasoning-heavy phases. Sub-agents spawned via the Task tool use **Sonnet 4.6** for focused execution.
+
+**ALL sub-agent Task tool calls MUST specify `model: "sonnet"`** in the following phases:
+- Phase 3 RETRIEVE — heterogeneous lens sub-agents (academic / practitioner / critical / historical)
+- Phase 6 CRITIQUE — gap-filling sub-agents
+- Phase 7.5 VERIFY — citation verification sub-agents (Step 2)
+- Phase 7.5 VERIFY — adversarial refutation agent (Step 2)
+
+**Why Sonnet for sub-agents:** Empirical A/B testing (April 2026) on a verification task with known ground truth showed Sonnet 4.6 matched Opus 4.6 on 100% of verdicts (4/4 claims with known ground truth in the A/B sample) including DRA failure mode flags, while running 37% faster and using 36% fewer tokens. On retrieval tasks, Sonnet produced near-equivalent quality (10 vs 11 sources, 84.3 vs 85.7 average credibility) at 24% faster wall clock and 36% fewer tokens. The minor source-selection edge Opus had on canonical papers is offset by the heterogeneous lens architecture (4 parallel sub-agents reduce single-agent variance) and the adversarial refutation agent's independent verification path. Sample size caveat: the verification A/B was n=4 claims; the v14 end-to-end test (Task #80) provides additional empirical confidence at full pipeline scale.
+
+**Why Opus for the lead agent (lead vs sub-agent split, not phase-by-phase split):** The lead agent runs on Opus for **ALL phases** — including the parts of Phase 3 RETRIEVE (Step 1 parallel searches, Step 3 collect-and-organize), Phase 4.5 OUTLINE REFINEMENT, Phase 6 CRITIQUE (red-team analysis and persona-based critique), and Phase 7.5 VERIFY (claim decomposition, DRA tagging, result processing, loop-back decisions, Step 6 retry decisions) that involve reasoning. Only the Task-tool-spawned sub-agents inside those phases run on Sonnet. **The hybrid split is about WHO (lead vs sub-agent) not WHEN (which phase)** — every phase has Opus-level lead reasoning. Downgrading the lead to Sonnet would be a false economy because the lead's Phase 1 SCOPE decomposition, Phase 2 PLAN strategy, Phase 4 TRIANGULATE contradiction resolution, Phase 5 SYNTHESIZE argument building, Phase 7 REFINE judgment, and Phase 8 PACKAGE writing all involve open-ended reasoning where Opus's depth provides a real edge.
+
+**Lead agent model selection:** The lead agent's model is set by the outer `claude -p --model opus` invocation that SKILL.md dictates at spawn time. Step 6 Verifier-Guided Retry also spawns a fresh `claude -p` subprocess — that subprocess is itself a lead agent of its own mini-pipeline and MUST also be invoked with `--model opus` (see Step 6 spawn command).
+
+**Sub-agent model selection — explicit override REQUIRED:** Task tool calls may inherit the parent's model by default — exact behavior is unspecified in Claude Code documentation as of April 2026, so sub-agents MUST specify `model: "sonnet"` explicitly at every spawn site to guarantee the hybrid architecture works. A missing `model` parameter is a silent correctness bug — both lead and sub-agent could end up on the same model and the cost/speed savings would be lost without any error message.
+
+**NOT recommended: Haiku 4.5 for any sub-agent (untested prior, not empirical conclusion).** Haiku 4.5 was NOT included in the April 2026 A/B test. A priori, its reasoning depth is likely below the threshold needed for DRA failure mode classification (G4/G5/T2 require careful semantic comparison), adversarial argumentation (defensible counter-claims, not just any contradiction), and source credibility judgment. A future test could evaluate Haiku for the simplest sub-tasks (URL fetching + literal text matching), but the incremental cost savings over Sonnet (additional 60%) are not worth the risk to the verification path until empirically validated. Sonnet captures most of the cost savings (40% vs Opus) without this risk.
+
 Use Task tool with general-purpose agents (3-5 agents) for:
 - Academic paper analysis (PDFs, detailed extraction)
 - Documentation deep dives (technical specs, API docs)
@@ -466,12 +486,12 @@ Agent D is recommended for topics with significant historical evolution (>5 year
 - WebSearch(query="quantum computing commercial applications [CURRENT_YEAR]")
 - WebSearch(query="quantum computing vs classical comparison")
 - WebSearch(query="quantum error correction research", allowed_domains=["arxiv.org", "scholar.google.com"])
-- Task(subagent_type="general-purpose", description="Academic deep dive", prompt="LENS: ACADEMIC/FORMAL. Deep dive into quantum computing academic papers from [CURRENT_YEAR]. Use technical jargon, author names, DOI searches. Prioritize peer-reviewed sources, arxiv, conference proceedings. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
-- Task(subagent_type="general-purpose", description="Practitioner analysis", prompt="LENS: PRACTITIONER/APPLIED. Analyze quantum computing real-world implementations, industry reports, case studies, and market data. Use practical terms, framework names. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
-- Task(subagent_type="general-purpose", description="Critical analysis", prompt="LENS: CRITICAL/ADVERSARIAL. Find problems, limitations, failures, and criticisms of quantum computing. Search for 'quantum computing problems', 'overhyped', 'limitations'. Do NOT focus on benefits. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", model="sonnet", description="Academic deep dive", prompt="LENS: ACADEMIC/FORMAL. Deep dive into quantum computing academic papers from [CURRENT_YEAR]. Use technical jargon, author names, DOI searches. Prioritize peer-reviewed sources, arxiv, conference proceedings. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", model="sonnet", description="Practitioner analysis", prompt="LENS: PRACTITIONER/APPLIED. Analyze quantum computing real-world implementations, industry reports, case studies, and market data. Use practical terms, framework names. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", model="sonnet", description="Critical analysis", prompt="LENS: CRITICAL/ADVERSARIAL. Find problems, limitations, failures, and criticisms of quantum computing. Search for 'quantum computing problems', 'overhyped', 'limitations'. Do NOT focus on benefits. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
 ```
 
-**NOTE:** All Phase 3 retrieval sub-agent prompts MUST include: (1) write-after-search protocol, (2) output file path, (3) source preference heuristics, (4) assigned research lens (see Heterogeneous Tool Assignment). The examples above show the minimum required additions. Phase 6 gap-filling sub-agents and Phase 7.5 verification sub-agents have different requirements — see those phases for their specific prompt instructions.
+**NOTE:** All Phase 3 retrieval sub-agent prompts MUST include: (1) write-after-search protocol, (2) output file path, (3) source preference heuristics, (4) assigned research lens (see Heterogeneous Tool Assignment), (5) `model="sonnet"` parameter on the Task tool call (see Sub-agent model selection above). The examples above show the minimum required additions. Phase 6 gap-filling sub-agents and Phase 7.5 verification sub-agents have different requirements — see those phases for their specific prompt instructions, but they ALSO require `model="sonnet"`.
 
 **Example parallel execution (using Exa MCP - if available):**
 ```
@@ -480,9 +500,9 @@ Agent D is recommended for topics with significant historical evolution (>5 year
 - mcp__Exa__exa_search(query="quantum computing limitations", type="keyword", num_results=10)
 - mcp__Exa__exa_search(query="quantum computing commercial", type="auto", num_results=10, start_published_date="[use current year from Step 0]")
 - mcp__Exa__exa_search(query="quantum error correction", type="neural", num_results=10, include_domains=["arxiv.org"])
-- Task(subagent_type="general-purpose", description="Academic deep dive", prompt="LENS: ACADEMIC/FORMAL. Deep dive into quantum computing academic papers. Use technical jargon, author names, DOI searches. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
-- Task(subagent_type="general-purpose", description="Practitioner analysis", prompt="LENS: PRACTITIONER/APPLIED. Analyze quantum computing real-world implementations, industry reports, case studies, and market data. Use practical terms, framework names. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
-- Task(subagent_type="general-purpose", description="Critical analysis", prompt="LENS: CRITICAL/ADVERSARIAL. Find problems, limitations, failures, and criticisms of quantum computing. Do NOT focus on benefits. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", model="sonnet", description="Academic deep dive", prompt="LENS: ACADEMIC/FORMAL. Deep dive into quantum computing academic papers. Use technical jargon, author names, DOI searches. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", model="sonnet", description="Practitioner analysis", prompt="LENS: PRACTITIONER/APPLIED. Analyze quantum computing real-world implementations, industry reports, case studies, and market data. Use practical terms, framework names. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
+- Task(subagent_type="general-purpose", model="sonnet", description="Critical analysis", prompt="LENS: CRITICAL/ADVERSARIAL. Find problems, limitations, failures, and criticisms of quantum computing. Do NOT focus on benefits. Write findings to [OUTPUT_FILE]. After every search, write immediately. Prioritize primary sources over SEO content.")
 ```
 
 **Step 3: Collect and organize results**
@@ -887,7 +907,7 @@ Simulate 2-3 specific critic personas relevant to the topic:
 
 **Critical Gap Loop-Back with Targeted Sub-Agents:**
 If critique identifies a critical knowledge gap (not just a writing issue):
-1. **Spawn 1-2 targeted sub-agents** via the Task tool to investigate the specific gap. Each sub-agent gets a focused prompt describing exactly what's missing and where to look. Include Source Preference Heuristics from Phase 3 in the sub-agent prompt.
+1. **Spawn 1-2 targeted sub-agents** via the Task tool to investigate the specific gap. Each sub-agent gets a focused prompt describing exactly what's missing and where to look. Include Source Preference Heuristics from Phase 3 in the sub-agent prompt. **MANDATORY: Specify `model="sonnet"` on every Task tool call** — gap-filling sub-agents follow the same hybrid model architecture as Phase 3 retrieval sub-agents (see "Sub-agent model selection" in Phase 3). Do NOT use Opus for gap-filling sub-agents — it is wasted cost with no quality gain on focused execution tasks.
 2. Sub-agents follow the same write-after-search protocol and output file path requirements as Phase 3 sub-agents.
 3. **The no-silent-skip rule from Phase 3 Completion Gate applies here** — gap-filling sub-agent prompts MUST require a TASK STATUS SUMMARY block, and the lead agent MUST reconcile against the Task Ledger in `plan.md` before proceeding.
 4. Wait for gap-filling sub-agents to complete (same sub-agent failure handling applies — see Phase 3 Operational Reliability Protocol).
@@ -984,6 +1004,8 @@ Record the DRA tags alongside each claim for use in the verification prompt.
 ### Step 2: Spawn Citation Verification Sub-Agents
 
 Spawn 2-3 citation verification sub-agents PLUS 1 adversarial refutation agent in the same synchronous parallel spawn (all in a single message). The citation verifiers check existing sources; the adversarial agent independently searches for contradicting evidence the original retrieval may have missed. **Default to 3 citation verifiers if the atomic claim count exceeds 14**, since the per-verifier batch cap of 5-7 (see Batch composition below) would otherwise be exceeded with only 2 agents.
+
+**ALL verification sub-agents (citation verifiers AND the adversarial refutation agent) MUST be spawned with `model="sonnet"` on the Task tool call.** This is part of the hybrid model architecture (see "Sub-agent model selection" in Phase 3). The verification path was the strongest empirical case for Sonnet — A/B testing showed Sonnet matching Opus on 100% of verdicts including DRA failure mode flags, while running 37% faster and using 36% fewer tokens. Do NOT use Opus for verification sub-agents — it is wasted cost with no quality gain.
 
 **The no-silent-skip rule from Phase 3 Completion Gate applies to all verification sub-agents.** Each verifier prompt MUST require a TASK STATUS SUMMARY block listing every assigned claim by ID with status `done` / `blocked` / `covered_by <claim-id>`. The lead agent reconciles the SUMMARY against the Task Ledger before processing results. A claim with no SUMMARY entry is treated as silently skipped — reassign it to another verifier or mark `blocked` with a reason.
 
@@ -1244,9 +1266,17 @@ cat > /tmp/retry-brief-${UUID8}.txt << 'BRIEF'
 [Retry Brief content]
 BRIEF
 
+# --model opus: Required for the hybrid architecture. The retry subprocess is itself
+#   a lead agent of an abbreviated pipeline (SCOPE→PLAN→RETRIEVE→SYNTHESIZE→VERIFY)
+#   and must run on Opus for the same reasons as the outer SKILL.md spawn — its
+#   sub-agents (which it spawns via Task tool) will use model="sonnet" per the
+#   methodology, but the retry's lead reasoning must stay on Opus. Without --model opus
+#   here, the retry could silently downgrade the entire most-expensive code path
+#   (Step 6 adds 80-120% of original cost when triggered) to whatever the user's
+#   default model is.
 # --max-turns 200: Generous budget for compressed pipeline. Turns don't cost extra (only tokens do).
 # --dangerously-skip-permissions: Required — subprocess has no interactive stdin.
-claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" --max-turns 200 \
+claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" --model opus --max-turns 200 \
   --dangerously-skip-permissions < /dev/null 2>/tmp/retry-${UUID8}.err
 ```
 

@@ -177,8 +177,12 @@ BRIEF
 Then spawn:
 ```
 Bash(run_in_background: true):
-claude -p "$(cat /tmp/research-brief-${UUID8}.txt)" --max-turns 200 --dangerously-skip-permissions < /dev/null 2>/tmp/research-${UUID8}.err | tee /tmp/research-${UUID8}.log
+claude -p "$(cat /tmp/research-brief-${UUID8}.txt)" --model opus --max-turns 200 --dangerously-skip-permissions < /dev/null 2>/tmp/research-${UUID8}.err | tee /tmp/research-${UUID8}.log
 ```
+
+**Why `--model opus` is explicit:** The deep research skill uses a **hybrid model architecture**. The lead agent (this spawned `claude -p` instance) runs on **Opus 4.6** for ALL phases — the hybrid split is about WHO (lead vs sub-agent) not WHEN (which phase). Sub-agents spawned via the Task tool inside the pipeline (Phase 3 retrieval, Phase 6 gap-filling, Phase 7.5 citation verifiers, Phase 7.5 adversarial agent) run on **Sonnet 4.6**. The methodology file enforces `model="sonnet"` on every Task tool spawn. Hardcoding `--model opus` here ensures the hybrid setup works regardless of the user's default model — without it, both the lead and sub-agents could end up on the same model and the cost/speed savings would be lost. See `reference/methodology.md` Phase 3 "Sub-agent model selection" for full rationale and the empirical A/B test that supports this choice.
+
+**If you do not have Opus access:** Change `--model opus` to `--model sonnet`. The skill will still function correctly with the Sonnet-only fallback architecture (lead and sub-agents both on Sonnet), but you will lose the lead-agent quality edge described in the Phase 3 "Why Opus for the lead agent" section. This is a graceful degradation, not a failure mode.
 
 ### How It Works
 
