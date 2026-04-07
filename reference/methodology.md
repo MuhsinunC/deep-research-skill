@@ -442,7 +442,18 @@ The deep research skill uses a **hybrid model architecture** to reduce cost ~28-
 
 **Sub-agent model selection — explicit override REQUIRED:** Task tool calls may inherit the parent's model by default — exact behavior is unspecified in Claude Code documentation as of April 2026, so sub-agents MUST specify `model: "sonnet"` explicitly at every spawn site to guarantee the hybrid architecture works. A missing `model` parameter is a silent correctness bug — both lead and sub-agent could end up on the same model and the cost/speed savings would be lost without any error message.
 
-**NOT recommended: Haiku 4.5 for any sub-agent (untested prior, not empirical conclusion).** Haiku 4.5 was NOT included in the April 2026 A/B test. A priori, its reasoning depth is likely below the threshold needed for DRA failure mode classification (G4/G5/T2 require careful semantic comparison), adversarial argumentation (defensible counter-claims, not just any contradiction), and source credibility judgment. A future test could evaluate Haiku for the simplest sub-tasks (URL fetching + literal text matching), but the incremental cost savings over Sonnet (additional 60%) are not worth the risk to the verification path until empirically validated. Sonnet captures most of the cost savings (40% vs Opus) without this risk.
+**Effort level configuration (CRITICAL — Opus only supports `max`, Sonnet maxes at `high`):**
+
+Anthropic's effort levels per model (verified April 2026 from official docs):
+- **Opus 4.6:** `low` / `medium` / `high` / `max` — default is `medium`. Only Opus supports `max`.
+- **Sonnet 4.6:** `low` / `medium` / `high` — default is `high`. Sonnet does NOT support `max`.
+- **Haiku 4.5:** Effort configuration is NOT available. Effort flags are ignored.
+
+The deep research skill MUST run the lead Opus 4.6 instance at `max` effort. Default `medium` produces materially worse synthesis, weaker contradiction resolution, and less rigorous verification reasoning. The `--effort max` CLI flag must be passed at spawn time AND `CLAUDE_CODE_EFFORT_LEVEL=max` must be set inline because the Bash tool that spawns this command uses non-interactive zsh which does NOT source `~/.zshrc` and therefore does NOT inherit the user's pinned env var. Both belt-and-suspenders are required — see SKILL.md spawn command and Step 6 retry spawn command for the exact invocation.
+
+The Task tool has NO `effort` parameter — sub-agent effort is controlled exclusively by the inherited `CLAUDE_CODE_EFFORT_LEVEL` env var. Since Sonnet sub-agents inherit the parent's `CLAUDE_CODE_EFFORT_LEVEL=max`, they will use Sonnet's highest available level (`high`, since Sonnet does not support `max`). This is the intended behavior — Sonnet's `high` is its quality ceiling and is also Sonnet's default, so sub-agents always run at the highest possible quality.
+
+**NOT recommended: Haiku 4.5 for any sub-agent (untested prior, not empirical conclusion).** Haiku 4.5 was NOT included in the April 2026 A/B test. A priori, its reasoning depth is likely below the threshold needed for DRA failure mode classification (G4/G5/T2 require careful semantic comparison), adversarial argumentation (defensible counter-claims, not just any contradiction), and source credibility judgment. Additionally, Haiku does not support effort configuration at all, so we cannot guarantee its quality ceiling. A future test could evaluate Haiku for the simplest sub-tasks (URL fetching + literal text matching), but the incremental cost savings over Sonnet (additional 60%) are not worth the risk to the verification path until empirically validated. Sonnet captures most of the cost savings (40% vs Opus) without this risk.
 
 Use Task tool with general-purpose agents (3-5 agents) for:
 - Academic paper analysis (PDFs, detailed extraction)
@@ -1270,13 +1281,19 @@ BRIEF
 #   a lead agent of an abbreviated pipeline (SCOPE→PLAN→RETRIEVE→SYNTHESIZE→VERIFY)
 #   and must run on Opus for the same reasons as the outer SKILL.md spawn — its
 #   sub-agents (which it spawns via Task tool) will use model="sonnet" per the
-#   methodology, but the retry's lead reasoning must stay on Opus. Without --model opus
-#   here, the retry could silently downgrade the entire most-expensive code path
-#   (Step 6 adds 80-120% of original cost when triggered) to whatever the user's
-#   default model is.
+#   methodology, but the retry's lead reasoning must stay on Opus.
+# --effort max: Required for the hybrid architecture. Opus 4.6's default effort is
+#   medium, which produces materially worse research output than max. The Bash tool
+#   that spawns this command runs zsh -c (non-interactive) which does NOT source
+#   ~/.zshrc, so the user's CLAUDE_CODE_EFFORT_LEVEL=max env var is NOT propagated.
+#   We must explicitly set both --effort max AND prefix the command with
+#   CLAUDE_CODE_EFFORT_LEVEL=max so the spawn AND its sub-agents (Sonnet, which
+#   inherits this env var and maps max → its actual max which is "high") get the
+#   correct effort level.
 # --max-turns 200: Generous budget for compressed pipeline. Turns don't cost extra (only tokens do).
 # --dangerously-skip-permissions: Required — subprocess has no interactive stdin.
-claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" --model opus --max-turns 200 \
+CLAUDE_CODE_EFFORT_LEVEL=max claude -p "$(cat /tmp/retry-brief-${UUID8}.txt)" \
+  --model opus --effort max --max-turns 200 \
   --dangerously-skip-permissions < /dev/null 2>/tmp/retry-${UUID8}.err
 ```
 

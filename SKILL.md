@@ -1,6 +1,7 @@
 ---
 name: deep-research
 description: Deep research expert. ALWAYS invoke for deep research, research reports, comprehensive analysis, or multi-source investigation. Do not attempt research directly -- use this skill first. NOT for simple lookups or debugging.
+effort: max
 ---
 
 # Deep Research
@@ -177,12 +178,19 @@ BRIEF
 Then spawn:
 ```
 Bash(run_in_background: true):
-claude -p "$(cat /tmp/research-brief-${UUID8}.txt)" --model opus --max-turns 200 --dangerously-skip-permissions < /dev/null 2>/tmp/research-${UUID8}.err | tee /tmp/research-${UUID8}.log
+CLAUDE_CODE_EFFORT_LEVEL=max claude -p "$(cat /tmp/research-brief-${UUID8}.txt)" --model opus --effort max --max-turns 200 --dangerously-skip-permissions < /dev/null 2>/tmp/research-${UUID8}.err | tee /tmp/research-${UUID8}.log
 ```
 
-**Why `--model opus` is explicit:** The deep research skill uses a **hybrid model architecture**. The lead agent (this spawned `claude -p` instance) runs on **Opus 4.6** for ALL phases — the hybrid split is about WHO (lead vs sub-agent) not WHEN (which phase). Sub-agents spawned via the Task tool inside the pipeline (Phase 3 retrieval, Phase 6 gap-filling, Phase 7.5 citation verifiers, Phase 7.5 adversarial agent) run on **Sonnet 4.6**. The methodology file enforces `model="sonnet"` on every Task tool spawn. Hardcoding `--model opus` here ensures the hybrid setup works regardless of the user's default model — without it, both the lead and sub-agents could end up on the same model and the cost/speed savings would be lost. See `reference/methodology.md` Phase 3 "Sub-agent model selection" for full rationale and the empirical A/B test that supports this choice.
+**Why `--model opus --effort max` is explicit (and `CLAUDE_CODE_EFFORT_LEVEL=max` is also set inline):**
 
-**If you do not have Opus access:** Change `--model opus` to `--model sonnet`. The skill will still function correctly with the Sonnet-only fallback architecture (lead and sub-agents both on Sonnet), but you will lose the lead-agent quality edge described in the Phase 3 "Why Opus for the lead agent" section. This is a graceful degradation, not a failure mode.
+**Model — hybrid architecture:** The lead agent (this spawned `claude -p` instance) runs on **Opus 4.6** for ALL phases — the hybrid split is about WHO (lead vs sub-agent) not WHEN (which phase). Sub-agents spawned via the Task tool inside the pipeline (Phase 3 retrieval, Phase 6 gap-filling, Phase 7.5 citation verifiers, Phase 7.5 adversarial agent) run on **Sonnet 4.6**. The methodology file enforces `model="sonnet"` on every Task tool spawn. Hardcoding `--model opus` here ensures the hybrid setup works regardless of the user's default model.
+
+**Effort — max for the lead, default high for sub-agents:**
+- The lead Opus 4.6 instance MUST run at `max` effort (Opus's highest level, only available on Opus 4.6). The default for Opus is `medium`, which produces materially worse research output. The skill SKILL.md frontmatter sets `effort: max`, but we ALSO pass `--effort max` on the CLI and `CLAUDE_CODE_EFFORT_LEVEL=max` inline because the Bash tool runs `zsh -c` (non-interactive) which does NOT source `~/.zshrc`. Without all three belt-and-suspenders, the spawned subprocess silently falls back to medium effort.
+- Sub-agents (Sonnet 4.6 via Task tool) automatically use Sonnet's highest effort `high` (which is also Sonnet's default — Sonnet does NOT support `max`, that level is Opus-only). The Task tool has no `effort` parameter, so sub-agents inherit the env var `CLAUDE_CODE_EFFORT_LEVEL=max` from this spawn — but Sonnet maps `max` → `high` since `max` is not valid for Sonnet. This is the intended behavior.
+- Haiku 4.5 does NOT support effort configuration at all, but we don't use Haiku in this pipeline.
+
+**If you do not have Opus access:** Change `--model opus` to `--model sonnet` AND `--effort max` to `--effort high` AND `CLAUDE_CODE_EFFORT_LEVEL=max` to `CLAUDE_CODE_EFFORT_LEVEL=high`. The skill will still function correctly with the Sonnet-only fallback architecture (lead and sub-agents both on Sonnet at high effort), but you will lose the lead-agent quality edge described in the Phase 3 "Why Opus for the lead agent" section. This is a graceful degradation, not a failure mode.
 
 ### How It Works
 
