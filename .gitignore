@@ -21,11 +21,17 @@ env/
 .DS_Store
 Thumbs.db
 
+# Auto-generated state from local tooling / plugins
+# .remember/ holds the remember plugin's private session notes — never publish
+# .playwright-mcp/ holds Playwright MCP browser cache
+.remember/
+.playwright-mcp/
+
 # Research output (kept local by default)
 *.json
-# Exception: preserve historical research artifacts under development/
+# Exception: preserve historical research artifacts under notes/
 # (test run checkpoints, sources.json, etc. — committed as read-only history)
-!development/**/*.json
+!notes/**/*.json
 
 # Test output
 .pytest_cache/
