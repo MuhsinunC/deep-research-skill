@@ -1,0 +1,33 @@
+{
+  "phase_completed": "PACKAGE",
+  "mode": "deep",
+  "topic": "Current state of AI deep research agent frameworks and techniques (March-April 2026)",
+  "sources_gathered": 50,
+  "sources_cited": 46,
+  "avg_credibility": 80,
+  "word_count": 7081,
+  "claims_verified": 8,
+  "claims_questionable": 2,
+  "claims_contradicted": 1,
+  "claims_unverifiable": 0,
+  "supersession_searches": 7,
+  "supersession_outdated": 1,
+  "supersession_superseded": 0,
+  "step6_triggered": false,
+  "step6_reason": "Loop-back budget not exhausted (0/2 cycles used). Single CONTRADICTED claim had clear fix.",
+  "loop_back_cycles_used": 0,
+  "output_dir": "/Users/user/Documents/Muhsinun/Projects/GitHub/random-web-research/research/deep-research-skill/v10-deep-mode-test/",
+  "report_file": "research_report.md",
+  "timestamp": "2026-04-01T13:05:00Z",
+  "domain_half_life": "90 days",
+  "uuid": "F9E7CB02",
+  "status": "completed",
+  "validation_passed": true,
+  "citation_verification_passed": true,
+  "phases_executed": ["SCOPE", "PLAN", "RETRIEVE", "TRIANGULATE", "OUTLINE_REFINEMENT", "SYNTHESIZE", "CRITIQUE", "REFINE", "VERIFY", "PACKAGE"],
+  "sub_agent_results": {
+    "academic": "Completed post-PACKAGE. 35+ papers, 17 novel techniques. Key new findings incorporated (W&D, PROClaim, A-RAG, RVR, reranking, SAGE).",
+    "practitioner": "Did not complete during session.",
+    "critical": "Completed post-PACKAGE. 18 findings, 5 meta-themes. Key findings incorporated (self-correction paradox, fabrication rates, multi-agent amplification, failure modes)."
+  }
+}

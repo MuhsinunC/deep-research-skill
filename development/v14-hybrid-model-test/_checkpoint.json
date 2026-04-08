@@ -1,0 +1,21 @@
+{
+  "phase_completed": "PACKAGE",
+  "mode": "deep",
+  "topic": "Comparison of agentic coding assistants in 2026",
+  "uuid": "A664CE38",
+  "output_dir": "/Users/user/Documents/Muhsinun/Projects/GitHub/random-web-research/research/deep-research-skill/v14-hybrid-model-test/",
+  "next_phase": "COMPLETE",
+  "timestamp": "2026-04-07T04:30:00Z",
+  "end_time": "2026-04-07T04:30:00Z",
+  "run_status": "complete (salvaged)",
+  "tainted_effort_baseline": true,
+  "effort_level_actual": "medium (default — env var not propagated)",
+  "effort_level_intended": "max",
+  "package_salvaged_by": "claude-sonnet-4-6",
+  "hard_fails_corrected": 5,
+  "soft_pass_hedges_applied": 12,
+  "adversarial_corrections_applied": 3,
+  "total_corrections": 20,
+  "final_report": "research_report.md",
+  "provenance_sidecar": "research_report.provenance.md"
+}

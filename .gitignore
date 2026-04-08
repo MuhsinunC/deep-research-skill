@@ -21,8 +21,11 @@ env/
 .DS_Store
 Thumbs.db
 
-# Research output (kept local)
+# Research output (kept local by default)
 *.json
+# Exception: preserve historical research artifacts under development/
+# (test run checkpoints, sources.json, etc. — committed as read-only history)
+!development/**/*.json
 
 # Test output
 .pytest_cache/

@@ -1,0 +1,16 @@
+[
+  {"num": 1, "title": "MARCH: Multi-Agent Reinforced Self-Check for LLM Hallucination", "url": "https://arxiv.org/abs/2603.24579", "claim": "Information-asymmetry verification reduces hallucinations to closed-source-competitive levels at 8B scale"},
+  {"num": 2, "title": "Cross-Layer Attention Probing for Fine-Grained Hallucination Detection", "url": "https://arxiv.org/abs/2509.09700", "claim": "CLAP improves hallucination detection over uncertainty baselines and single-layer probing"},
+  {"num": 3, "title": "LLM Hallucination Detection: A Fast Fourier Transform Method", "url": "https://arxiv.org/abs/2509.13154", "claim": "HSAD achieves 10+ point improvement over prior SOTA on TruthfulQA"},
+  {"num": 4, "title": "Bounding Hallucinations: Information-Theoretic Guarantees for RAG Systems via Merlin-Arthur Protocols", "url": "https://arxiv.org/abs/2512.11614", "claim": "Merlin-Arthur training improves evidence grounding without annotated unanswerable samples"},
+  {"num": 5, "title": "MAR: Multi-Agent Reflexion Improves Reasoning Abilities in LLMs", "url": "https://arxiv.org/abs/2512.20845", "claim": "MAR improves exact match by ~20 points on HotPotQA over single-agent Reflexion"},
+  {"num": 6, "title": "Evaluating Novelty in AI-Generated Research Plans Using Multi-Workflow LLM Pipelines", "url": "https://arxiv.org/abs/2601.09714", "claim": "Decomposition workflows score 4.17/5 novelty vs 2.33/5 for reflection"},
+  {"num": 7, "title": "Gaia2: Benchmarking LLM Agents on Dynamic and Asynchronous Environments", "url": "https://arxiv.org/abs/2602.11964", "claim": "GPT-5 achieves 42% on Gaia2, failing disproportionately on time-sensitive tasks"},
+  {"num": 8, "title": "Hallucination Detection in LLMs Using Spectral Features of Attention Maps", "url": "https://arxiv.org/abs/2502.17598", "claim": "LapEigvals achieves SOTA hallucination detection among attention-based methods"},
+  {"num": 9, "title": "SimpleQA Benchmark Leaderboard", "url": "https://llm-stats.com/benchmarks/simpleqa", "claim": "DeepSeek-V3.2-Exp leads SimpleQA at 97.1%"},
+  {"num": 10, "title": "MEGA-RAG: Multi-Evidence Guided Answer Refinement", "url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2025.1635381/full", "claim": "MEGA-RAG reduces hallucination rates by over 40% in public health domain"},
+  {"num": 11, "title": "Mitigating Hallucination in LLMs: An Application-Oriented Survey", "url": "https://arxiv.org/abs/2510.24476", "claim": "Survey categorizing agentic systems for hallucination mitigation"},
+  {"num": 12, "title": "GAIA: A Benchmark for General AI Assistants", "url": "https://arxiv.org/abs/2311.12983", "claim": "GAIA baseline: humans 92% vs GPT-4 15%"},
+  {"num": 13, "title": "Grounding the Ungrounded: Spectral-Graph Framework for Hallucinations in Multimodal LLMs", "url": "https://arxiv.org/abs/2508.19366", "claim": "Spectral-graph analysis quantifies hallucination in multimodal models"},
+  {"num": 14, "title": "Neural Message-Passing on Attention Graphs for Hallucination Detection", "url": "https://arxiv.org/abs/2509.24770", "claim": "Message-passing on attention graphs detects hallucinations"}
+]
