@@ -3,7 +3,45 @@
 Tracks all completed and planned work across the project. Checkboxes show
 status: checked = done, unchecked = pending/in-progress.
 
-Last updated: 2026-04-10
+Last updated: 2026-04-26
+
+---
+
+## Stream B1: Operational Reliability Bug Fixes (complete — 2026-04-26)
+
+Source: comprehensive bug report from 2026-04-25 peptide-knowledge-base
+session that ran ~14 parallel deep-research dispatches and observed 7
+distinct operational failure modes. Bug report at
+`/Users/user/Documents/Muhsinun/Projects/GitHub/peptides-research/.local/deep-research-skill-bugs-2026-04-25.md`.
+
+Plan at `notes/IMPLEMENTATION_PLAN.md`. Plan was code-reviewed (4 Critical + 6 Important findings, all addressed in the revised plan and implementation). Implementation was code-reviewed (0 Critical, 1 Important, 7 Minor). Important finding I1 plus Minor findings M1, M4, M5, M7 were folded in; M2 (full canonical-name migration in methodology.md prompts) deferred to a follow-up because resume back-compat handles legacy names; M3 (ADR-002 file vs in-line rationale) consolidated in `reference/resume.md`; M6 (test count divergence) is non-defect.
+
+- [x] Bug 1 fix — recursive-spawn env-var guard (`CLAUDE_CODE_DEEP_RESEARCH_WORKER=1` plus role-check directive at top of Background Mode in SKILL.md plus wrapper-side `[ROLE-CHECK-WRAPPER]` echo)
+- [x] Bug 2 fix — resume capability (Path A brief-prefix + Path B auto-detect + Disk-Truth Reconciliation + Phase 0 RESUME DETECTION + atomic checkpoint helper at `skill/scripts/atomic_checkpoint.py`)
+- [x] Bug 3 fix — `< /dev/null` redirect on its own line with prominent warning above the spawn block
+- [x] Bug 4 fix — `_starting.txt` liveness signal written by the bash wrapper BEFORE invoking `claude -p`
+- [x] Bug 5 fix — Concurrency Guidelines section in SKILL.md (tab isolation, concurrency caps, session-aware sites, failure modes)
+- [x] Bug 6 fix — Graceful Pause via `_STOP_REQUESTED` / `_STOP_NOW` flag files with Policy A (worker doesn't delete the flag)
+- [x] Bug 7 fix — completion signal: Layer 1 (process exit + `_DONE`) docs, Layer 2 (`_DONE` sentinel via atomic helper), Layer 3 (`research-tasks.json` status), Layer 4 (tmux as the DEFAULT spawn pattern)
+- [x] Cross-Cutting A — `CLAUDE_CODE_DEEP_RESEARCH_UUID8` env var on the lead worker for `ps eww | grep <UUID8>` visibility
+- [x] Cross-Cutting B — partial: backwards-compatible filename aliases documented in `reference/resume.md`. Full canonical-name migration in methodology.md prompt examples is deferred (follow-up task — resume back-compat handles legacy names).
+- [x] Cross-Cutting C — `research-tasks.json` registration enforced as part of Phase 0 (after RESUME DETECTION); status updated to `complete` in Phase 8 ordering rule
+- [x] Cross-Cutting D — Cost forecast block in SKILL.md Step 2, printed before spawning
+- [x] Phase 0 RESUME DETECTION section added in `methodology.md` (runs FIRST, before Task Registration)
+- [x] Phase 8 Strict Ordering Rule added (Activities 1-7 → 8 → 9 → 9.5 HTML/PDF → 9.7 research-tasks complete → 9.8 final checkpoint → 10 `_DONE` LAST)
+- [x] Atomic checkpoint Python helper (`skill/scripts/atomic_checkpoint.py`, 270 lines) with subcommands for default checkpoint, sub-agent progress, `_DONE` sentinel, and `cleanup-tmp`
+- [x] Resume protocol reference (`skill/reference/resume.md`, 217 lines) — Path A header template, Disk-Truth Reconciliation algorithm, standardized output filenames table, atomic checkpoint usage, pause compatibility, Granularity 3 deferral rationale
+- [x] Unit tests (`skill/scripts/tests/test_atomic_checkpoint.py`, 20 tests) covering atomic-write behavior, kill-mid-write simulation, JSON validation, sub-agent progress schema, `_DONE` idempotency, cleanup, plus 9 static consistency checks against SKILL.md and methodology.md
+- [x] Test runner script (`skill/scripts/run_tests.sh`)
+- [x] All 20 unit tests pass in 138ms
+
+**Out of scope for this Stream (deferred to follow-ups):**
+- End-to-end pipeline tests (per user direction — token budget constraint)
+- Granularity 3 mid-LLM-turn resume (rationale documented in `reference/resume.md`)
+- Path C `claude -p --resume <output_dir>` CLI mode (would require changes to claude binary itself)
+- Token-budget self-pause (Bug 6 Trigger 4) — defer per bug report's own recommendation
+- Long-term Bug 3 fix in claude CLI (auto-redirect stdin)
+- Full canonical-name migration in methodology.md prompt examples (back-compat handles legacy)
 
 ---
 

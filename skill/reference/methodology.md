@@ -118,9 +118,57 @@ This applies to every phase. It is not optional.
 
 ---
 
+## Phase 0: RESUME DETECTION (NEW — runs FIRST, before Task Registration)
+
+**Objective:** Detect whether OUTPUT_DIR contains prior-dispatch artifacts and decide whether to resume or start fresh. This phase must run FIRST — before Task Registration creates a fresh `research-tasks.json` entry, before Phase 1 starts. If the worker is being respawned to resume a killed dispatch, Phase 0 takes that branch; otherwise it falls through to Task Registration.
+
+**Progress:** `[Phase RESUME-DETECTION] Checking for prior artifacts...`
+
+**Inputs available at Phase 0 startup:** `$OUTPUT_DIR` is provided in the brief (the spawn template substitutes the absolute path before passing the brief to `claude -p`). `$UUID8` is also in the brief AND in the `CLAUDE_CODE_DEEP_RESEARCH_UUID8` env var. The worker MUST use these as concrete values, not as placeholders. If the brief literally contains `[OUTPUT_DIR]`, that's a bug in the spawn template — abort with an error.
+
+**Activities:**
+
+1. **Check for pause flag.** If `_STOP_REQUESTED` or `_STOP_NOW` is present in `OUTPUT_DIR`, refuse to start. Print: `Found _STOP_REQUESTED in OUTPUT_DIR. Remove it before resuming, or this dispatch will pause again immediately at the first phase boundary.` and **end the worker turn — do not invoke any further tools** (the bash subshell `exit 2` exits the subshell only; the worker LLM must also stop processing).
+
+2. **Check for `_DONE` sentinel.** If present, the prior dispatch is COMPLETE. Print: `Dispatch <UUID8> already complete; report at <OUTPUT_DIR>/research_report_*.md` and **end the worker turn — do not re-run any phases or invoke any further tools**.
+
+3. **Cleanup leftover `*.tmp` files** from a kill mid-write:
+   ```bash
+   python ~/.claude/skills/deep-research/scripts/atomic_checkpoint.py \
+       cleanup-tmp --output-dir "$OUTPUT_DIR"
+   ```
+
+4. **Check for `_checkpoint.json`.** If absent AND no other phase artifacts exist (`OUTPUT_DIR` is empty or doesn't exist), proceed to Task Registration normally.
+
+5. **If `_checkpoint.json` is present OR phase artifacts exist on disk** without a checkpoint:
+   - Read `_checkpoint.json` (may be missing; that's OK).
+   - Run **Disk-Truth Reconciliation:** scan `OUTPUT_DIR` for canonical phase artifact filenames (see `reference/resume.md` "Standardized Output Filenames"). Also accept legacy aliases. For any phase whose artifact exists on disk, treat that phase as complete.
+   - If disk-truth disagrees with the checkpoint's `phase_completed`, **trust the disk** and update the checkpoint atomically.
+   - Identify the first incomplete phase. Proceed from there.
+   - For Phase 3 / 6 / 7.5 fan-outs, also read `_subagent_progress.json` (if present) and skip sub-agents whose output files already exist on disk. Disk-truth wins over `_subagent_progress.json` content.
+   - Do NOT create a new `research-tasks.json` entry on resume; instead, update the existing entry's `last_resumed_at` field with the current ISO timestamp. If no entry exists for this UUID, create one with `status: "in_progress"` and a `notes: "resumed without prior registration"` field.
+   - Skip Task Registration's mkdir + brand-new-entry logic.
+
+5b. **Completion-but-missing-sentinel reconciliation (mandatory):** If `_checkpoint.json` shows `status: "complete"` AND `phase_completed: "PACKAGE"` AND a `research_report_*.md` file exists on disk AND `_DONE` is absent, the prior dispatch reached the end of Phase 8 but was killed between Activity 9.8 (final checkpoint update) and Activity 10 (`_DONE` write). Write the missing `_DONE` and exit:
+
+   ```bash
+   python ~/.claude/skills/deep-research/scripts/atomic_checkpoint.py done \
+       --output-dir "$OUTPUT_DIR" --uuid8 "$UUID8"
+   ```
+
+   Print: `Dispatch <UUID8> reconciled — _DONE was missing but report is complete.` and **end the worker turn — do NOT re-run any phases**. This protects against the narrow window between checkpoint and `_DONE` writes during normal Phase 8 completion.
+
+**Note on liveness:** The bash spawn template writes `_starting.txt` to OUTPUT_DIR BEFORE invoking `claude -p`. If `_starting.txt` does not exist within 60 seconds of dispatch, the bash wrapper itself failed (filesystem error, wrong path to claude binary, permission issue) — investigate the spawn command. If `_starting.txt` exists but no other artifacts appear within 5 minutes, the worker started but is hung — investigate `research-${UUID8}.log` and `research-${UUID8}.err` and consider killing.
+
+**Output:** Either (a) exit because `_DONE` exists / pause flag prevents resume, or (b) a reconciled checkpoint plus a clear "first incomplete phase" decision. Save the reconciled checkpoint atomically before proceeding to the next phase.
+
+For full mechanics (Path A vs Path B, sub-agent progress tracking, Granularity 3 deferral rationale), see `reference/resume.md`.
+
+---
+
 ## Task Registration and Output Directory
 
-**Before starting Phase 1**, generate a unique task ID and create the output directory:
+**Before starting Phase 1** (and only if Phase 0 RESUME DETECTION did NOT take the resume branch), generate a unique task ID and create the output directory:
 
 ```bash
 UUID8=$(uuidgen | cut -c1-8)
@@ -129,7 +177,8 @@ OUTPUT_DIR=~/Documents/Research/[Topic_Slug]_${DATE}_${UUID8}
 mkdir -p "$OUTPUT_DIR"
 ```
 
-**Register the task** in `~/.claude/research-tasks.json` (create if doesn't exist):
+**Register the task** in `~/.claude/research-tasks.json` (create if doesn't exist). This is **mandatory** — combined with Phase 0's liveness signal, it gives operators a single-file view of all in-flight dispatches:
+
 ```json
 {
   "tasks": [
@@ -145,29 +194,69 @@ mkdir -p "$OUTPUT_DIR"
 }
 ```
 
-Update the task status to `"completed"` in Phase 8 (PACKAGE) after the report is written.
+**Phase 8 update:** Workers MUST update the entry to `status: "complete"` with `complete_time: <ISO timestamp>` as part of Phase 8 PACKAGE (immediately before writing `_DONE` — see Phase 8 ordering rule).
+
+**Resume case:** If Phase 0 detected a resume scenario, do NOT overwrite the existing entry; update its `last_resumed_at` field instead.
 
 ---
 
 ## Checkpoint/Resume Protocol
 
-**At the end of each phase, save a checkpoint file** to the research output directory as `_checkpoint.json`:
+**At the end of each phase, save a checkpoint file** to the research output directory as `_checkpoint.json`. Use the atomic helper (NOT raw file write — `$BASH_SOURCE` is empty in worker Bash calls, so reference the deployed canonical path):
 
-```json
-{
-  "phase_completed": "TRIANGULATE",
-  "mode": "standard",
-  "topic": "research topic here",
-  "sources_gathered": 18,
-  "output_dir": "/path/to/output/",
-  "next_phase": "OUTLINE_REFINEMENT",
-  "timestamp": "2026-03-22T14:30:00Z"
-}
+```bash
+python ~/.claude/skills/deep-research/scripts/atomic_checkpoint.py \
+    --output-dir "$OUTPUT_DIR" \
+    --phase-completed "TRIANGULATE" \
+    --next-phase "OUTLINE_REFINEMENT" \
+    --extra '{"sources_gathered": 18, "mode": "standard", "topic": "..."}'
 ```
+
+The helper writes `_checkpoint.json.tmp` first, fsync's it, then `os.replace()`s it to the final name. Result: even if killed mid-write, the prior checkpoint is preserved and the half-written `.tmp` is cleaned up by Phase 0 RESUME DETECTION on next invocation.
 
 Use the phase name string (e.g., `"SCOPE"`, `"RETRIEVE"`, `"OUTLINE_REFINEMENT"`, `"VERIFY"`) for both `phase_completed` and `next_phase`. This avoids ambiguity with half-phases (4.5, 7.5).
 
-**On invocation:** Before starting Phase 1, check the output directory for an existing `_checkpoint.json`. If found, offer to resume from the last completed phase. This prevents total loss of work when context compaction or session interruption occurs mid-research.
+**Update the checkpoint at every artifact write within a phase, not just at phase boundaries.** When Phase 3 RETRIEVE writes `phase03_retrieve_academic.md`, update `_checkpoint.json` immediately to reflect `phase_in_progress: RETRIEVE` (via the `--extra` flag with `{"phase_in_progress": "RETRIEVE", "completed_subagents": ["academic"]}`). This eliminates the drift window where artifacts exist on disk but the checkpoint claims they don't.
+
+**Sub-agent progress tracking:** For phases that fan out to multiple sub-agents (Phase 3 RETRIEVE, Phase 6 CRITIQUE gap-fill, Phase 7.5 VERIFY), also write `$OUTPUT_DIR/_subagent_progress.json` after each Task batch returns:
+
+```bash
+python ~/.claude/skills/deep-research/scripts/atomic_checkpoint.py \
+    subagent-progress \
+    --output-dir "$OUTPUT_DIR" \
+    --phase RETRIEVE \
+    --expected academic,practitioner,critical,historical \
+    --completed academic,practitioner
+```
+
+**Task tool batched-spawn caveat:** Phase 3 / 6 / 7.5 sub-agents are spawned via the **Task tool** as in-process synchronous calls. The lead receives a single batch return, NOT per-sub-agent completion events. So `_subagent_progress.json` updates happen after each Task batch returns. If killed mid-batch (one or more sub-agents wrote files but the batch hadn't returned), Phase 0 RESUME DETECTION falls back to file-presence-on-disk via the Disk-Truth Reconciliation rule. See `reference/resume.md` for the full algorithm.
+
+**On invocation:** Phase 0 (above) handles resume detection automatically. The pre-Phase-0 spawn must point at the SAME OUTPUT_DIR for resume to work — see SKILL.md `## Resume After Interruption`.
+
+---
+
+## Pause-Flag Check (mandatory at every phase entry)
+
+Before starting any phase's activities, the worker MUST check for pause flags:
+
+```bash
+if [ -f "$OUTPUT_DIR/_STOP_REQUESTED" ] || [ -f "$OUTPUT_DIR/_STOP_NOW" ]; then
+    flag_type="stop_soft"
+    [ -f "$OUTPUT_DIR/_STOP_NOW" ] && flag_type="stop_now"
+    python ~/.claude/skills/deep-research/scripts/atomic_checkpoint.py \
+        --output-dir "$OUTPUT_DIR" \
+        --phase-completed "$LAST_COMPLETED_PHASE" \
+        --next-phase "$THIS_PHASE" \
+        --extra "{\"status\": \"paused\", \"paused_reason\": \"flag-${flag_type}\"}"
+    echo "Paused at phase $THIS_PHASE due to flag $flag_type" \
+        > "$OUTPUT_DIR/_PAUSED_AT_PHASE_${THIS_PHASE}.txt"
+    exit 0
+fi
+```
+
+For Phase 3 RETRIEVE / 6 CRITIQUE / 7.5 VERIFY (fan-out phases), additionally check for `_STOP_NOW` between Task batches (`_STOP_REQUESTED` matches at phase boundaries only; `_STOP_NOW` matches at every safe boundary).
+
+The flag policy (Policy A) is that the worker does NOT delete the flag — the operator must `rm` it before resuming. See SKILL.md `## Graceful Pause` for operator workflows.
 
 ---
 
@@ -1447,7 +1536,45 @@ The provenance sidecar is NOT the same as `_checkpoint.json` — the checkpoint 
 
 **Think2 EVALUATE (after activities):** Does the report address every component of the original research question from SCOPE? Count: citations in text vs. bibliography entries — do they match? Are all VERIFY findings represented in the methodology appendix? Are supersession check results (SUPERSEDED/OUTDATED) documented alongside citation verification results? Are adversarial refutation results (WITHSTOOD/WEAKENED/REFUTED) documented for the top claims? Confirm all acceptance criteria from Phase 1 SCOPE are accounted for in the provenance sidecar — no criterion should be omitted or left unchecked. Does the prose follow the verdict-phrasing rule — definitive for VERIFIED, labeled inline for QUESTIONABLE/SUPERSEDED, and omitted from main prose (documented in Limitations instead) for CONTRADICTED/UNVERIFIABLE? Spot-check 3-5 paragraphs against the verification results to confirm the language tier matches the claim status. Is the executive summary accurate and not overstated relative to the evidence?
 
-**Output:** Complete research report ready for use. Save final checkpoint.
+---
+
+### Phase 8 Strict Ordering Rule (mandatory — Bug 7 acceptance)
+
+The bug report requires `_DONE` to be the file with the most-recent mtime in OUTPUT_DIR. Therefore Phase 8 activities MUST execute in this exact order. Numbering extends Activities 1-9 above with 9.5, 9.7, 9.8, and 10:
+
+1. **Activities 1-7:** Write `research_report_<DATE>_<slug>.md` (the Markdown source).
+2. **Activity 8:** If Step 6 retry was triggered, run the merge logic.
+3. **Activity 9:** Write the provenance sidecar `research_report_*.provenance.md`.
+4. **Activity 9.5 — HTML/PDF generation.** Run `md_to_html.py` and `weasyprint` to produce sibling `.html` and `.pdf` files. After this step, ALL non-sentinel artifacts are on disk.
+5. **Activity 9.7 — Update `research-tasks.json`** entry to `status: "complete"` with `complete_time: <ISO timestamp>` (use atomic write).
+6. **Activity 9.8 — Update `_checkpoint.json` atomically** to `phase_completed: "PACKAGE"`, `status: "complete"`, `next_phase: null`:
+
+   ```bash
+   python ~/.claude/skills/deep-research/scripts/atomic_checkpoint.py \
+       --output-dir "$OUTPUT_DIR" \
+       --phase-completed "PACKAGE" \
+       --next-phase "" \
+       --extra '{"status": "complete"}'
+   ```
+
+7. **Activity 10 — Write `_DONE` sentinel atomically AS THE FINAL ACTION.** Use the deployed canonical path (per the resume convention; `$BASH_SOURCE` is empty in worker Bash calls):
+
+   ```bash
+   python ~/.claude/skills/deep-research/scripts/atomic_checkpoint.py done \
+       --output-dir "$OUTPUT_DIR" --uuid8 "$UUID8"
+   ```
+
+After Activity 10, NOTHING else is written to OUTPUT_DIR by the worker. This guarantees `_DONE` has the most-recent mtime.
+
+**Failure-mode behavior:** If killed between Activity 9.5 (HTML/PDF) and Activity 10 (`_DONE`), Phase 0 RESUME DETECTION on the next invocation sees:
+- `research_report_*.md` exists → main artifact intact
+- HTML/PDF exists → ancillary artifacts intact
+- `_checkpoint.json` says `status: "complete"` (Activity 9.8 ran)
+- `_DONE` absent (Activity 10 didn't run)
+
+In this state, Phase 0 detects the inconsistency, simply writes the missing `_DONE`, and exits — no re-run of phases. If killed between 9.7 and 9.8, the `research-tasks.json` says `complete` but checkpoint disagrees; Disk-Truth Reconciliation re-runs the final activities (idempotent — atomic-replaces always produce the same end state).
+
+**Output:** Complete research report ready for use, with `_DONE` sentinel proving the final state.
 
 ---
 
