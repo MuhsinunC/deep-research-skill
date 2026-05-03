@@ -10,6 +10,16 @@
 import type { PhaseHandler } from "./types.js";
 import type { PhaseName } from "../state/disk_truth.js";
 import { phase00_resume } from "./phase00_resume.js";
+import { phase01_scope } from "./phase01_scope.js";
+import { phase02_plan } from "./phase02_plan.js";
+import { phase03_retrieve } from "./phase03_retrieve.js";
+import { phase04_triangulate } from "./phase04_triangulate.js";
+import { phase04_5_outline } from "./phase04_5_outline.js";
+import { phase05_synthesize } from "./phase05_synthesize.js";
+import { phase06_critique } from "./phase06_critique.js";
+import { phase07_refine } from "./phase07_refine.js";
+import { phase07_5_verify } from "./phase07_5_verify.js";
+import { phase08_package } from "./phase08_package.js";
 
 /** A registry of phase handlers. Tests construct their own registries to
  *  inject mocks; production uses the default `registry` export below. */
@@ -37,7 +47,13 @@ export class PhaseRegistry {
 /** Default registry populated with all production phase handlers. */
 export const defaultRegistry = new PhaseRegistry();
 defaultRegistry.register("RESUME_DETECTION", phase00_resume);
-// TODO M8-M14: register phase01-phase08 handlers as they're implemented.
-// The orchestrator throws "no handler for phase X" if asked to run a
-// phase whose handler isn't registered yet — useful for incremental
-// development.
+defaultRegistry.register("SCOPE", phase01_scope);
+defaultRegistry.register("PLAN", phase02_plan);
+defaultRegistry.register("RETRIEVE", phase03_retrieve);
+defaultRegistry.register("TRIANGULATE", phase04_triangulate);
+defaultRegistry.register("OUTLINE_REFINEMENT", phase04_5_outline);
+defaultRegistry.register("SYNTHESIZE", phase05_synthesize);
+defaultRegistry.register("CRITIQUE", phase06_critique);
+defaultRegistry.register("REFINE", phase07_refine);
+defaultRegistry.register("VERIFY", phase07_5_verify);
+defaultRegistry.register("PACKAGE", phase08_package);
