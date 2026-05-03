@@ -277,10 +277,6 @@ function buildOpenCodeOpts(
   };
 }
 
-function tryParseJsonOrText(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
+// Per I-2 in M19 review: use the shared code-fence-aware extractor.
+import { extractJsonOrText as tryParseJsonOrText } from "../util/json_extract.js";
+void tryParseJsonOrText;

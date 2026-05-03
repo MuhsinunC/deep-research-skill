@@ -149,9 +149,13 @@ export async function runOrchestrator(
 
     lastCompletedPhase = phase;
 
-    // Write checkpoint for non-Phase-0 phases. (Phase 0 writes its own
-    // reconciled checkpoint internally.)
-    if (phase !== "RESUME_DETECTION") {
+    // Write checkpoint AFTER each phase, EXCEPT:
+    // - RESUME_DETECTION (writes its own reconciled checkpoint internally)
+    // - PACKAGE (per Phase 8 strict ordering rule: PACKAGE owns the final
+    //   checkpoint write at step 5, then writes _DONE at step 6 — if the
+    //   orchestrator wrote another checkpoint AFTER _DONE, _DONE would no
+    //   longer have the most-recent mtime, violating C4 in PLAN.md).
+    if (phase !== "RESUME_DETECTION" && phase !== "PACKAGE") {
       const nextPhase =
         phaseResult.loopBackTo !== undefined
           ? phaseResult.loopBackTo

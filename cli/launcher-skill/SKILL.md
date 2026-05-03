@@ -6,7 +6,7 @@ description: Deterministic CLI engine for deep research with reliability guarant
 # Deep Research CLI Launcher
 
 This skill invokes the `deep-research-cli` Node.js engine bundled at
-`./scripts/cli.js`. The engine reproduces the deep-research methodology
+`./scripts/cli.mjs`. The engine reproduces the deep-research methodology
 with code as the orchestrator and AI calls only for genuinely
 open-ended judgment — giving you predictable execution, atomic state
 persistence, and per-phase model selection.
@@ -28,7 +28,7 @@ choice that the CLI provides.
 ## Invocation
 
 ```bash
-node ~/.claude/skills/deep-research-cli/scripts/cli.js \
+node ~/.claude/skills/deep-research-cli/scripts/cli.mjs \
   "<topic>" \
   --mode deep \
   --provider claude

@@ -24,6 +24,7 @@ import { scanDiskTruth } from "../state/disk_truth.js";
 import {
   registerTask,
   markTaskResumed,
+  ensureTaskRegistered,
 } from "../state/tasks_registry.js";
 import {
   PauseRequestedError,
@@ -119,17 +120,16 @@ export const phase00_resume = async (ctx: PhaseContext): Promise<PhaseResult> =>
     ctx.log.info(
       `Resuming dispatch — completed phases on disk: [${completedFromDisk.join(", ")}]`,
     );
+    // markTaskResumed is idempotent and a no-op if the task isn't yet
+    // registered. We avoid calling registerTask on the resume path because
+    // that would clobber start_time, status, and any prior `notes` /
+    // `complete_time` (per C-3 in M19 review). If the task isn't registered
+    // (operator started a fresh run with --output-dir pointing at a partial
+    // dir from outside the CLI), then markTaskResumed gracefully no-ops and
+    // we register fresh once — but with start_time = now, which is the
+    // correct semantics for "first time we're seeing this task".
     await markTaskResumed(ctx.uuid8);
-    // markTaskResumed is a no-op if the task was never registered. Cover
-    // that edge case by registering fresh, then immediately marking resumed.
-    await registerTask({
-      uuid: ctx.uuid8,
-      topic: ctx.topic,
-      outputDir: ctx.outputDir,
-      mode: ctx.mode,
-      cliVersion: ctx.cliVersion,
-    });
-    await markTaskResumed(ctx.uuid8);
+    await ensureRegistered(ctx);
   } else {
     ctx.log.info("Fresh dispatch — no prior artifacts");
     await registerTask({
@@ -159,6 +159,20 @@ export const phase00_resume = async (ctx: PhaseContext): Promise<PhaseResult> =>
     checkpointExtra,
   };
 };
+
+/** Idempotent wrapper around ensureTaskRegistered — only adds a fresh
+ *  entry if the uuid isn't already registered. Critical on the resume
+ *  path where overwriting an existing entry would corrupt start_time
+ *  and complete_time (per C-3 in M19 review). */
+async function ensureRegistered(ctx: PhaseContext): Promise<void> {
+  await ensureTaskRegistered({
+    uuid: ctx.uuid8,
+    topic: ctx.topic,
+    outputDir: ctx.outputDir,
+    mode: ctx.mode,
+    cliVersion: ctx.cliVersion,
+  });
+}
 
 /** Given the set of phases marked complete on disk, return the name of
  *  the next phase that the orchestrator should run. The orchestrator's

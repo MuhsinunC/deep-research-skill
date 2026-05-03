@@ -9,7 +9,7 @@
 # triggers narrowly per its SKILL.md frontmatter.
 #
 # IMPORTANT: run `npm run build` from cli/ first to refresh
-# launcher-skill/scripts/cli.js. The deploy script does NOT auto-build.
+# launcher-skill/scripts/cli.mjs. The deploy script does NOT auto-build.
 # Committing a built artifact is required (per I3 in PLAN.md) so a fresh
 # clone can deploy without npm install.
 
@@ -40,8 +40,8 @@ if [ ! -f "$SOURCE_DIR/SKILL.md" ]; then
   exit 1
 fi
 
-if [ ! -f "$SOURCE_DIR/scripts/cli.js" ]; then
-  echo "ERROR: $SOURCE_DIR/scripts/cli.js is missing." >&2
+if [ ! -f "$SOURCE_DIR/scripts/cli.mjs" ]; then
+  echo "ERROR: $SOURCE_DIR/scripts/cli.mjs is missing." >&2
   echo "Run 'npm run build' from cli/ to produce the bundle, then retry." >&2
   exit 1
 fi

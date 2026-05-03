@@ -7,7 +7,7 @@ Last updated: 2026-05-03
 
 ---
 
-## Stream C1: Deterministic CLI Engine (M0-M17 complete; M18-M21 user-driven — 2026-05-03)
+## Stream C1: Deterministic CLI Engine (M0-M21 COMPLETE — 2026-05-03)
 
 Source: 2026-05-03 user request to invert the architecture from "Claude
 Code worker reads prompt-driven skill, AI orchestrates everything" to
@@ -109,18 +109,47 @@ two review iterations).
 - `./tools/deploy-cli-to-live.sh` deploys cleanly to live skill dir
 - `deep-research-cli` skill visible in live Claude Code skills list
 
-**Remaining (M19-M21, user-driven):**
-- [ ] **M19** — final whole-project code review with
-  `superpowers:code-reviewer` on cross-cutting concerns (per-milestone
-  reviews from M3 onward were batched into this final pass to stay
-  within context budget; documented in commit messages
-  `c4c9447`/`ff02fef`/`25aa205`)
-- [ ] **M20** — end-to-end test: `deep` mode on "How can the
-  deep-research-cli project be improved?" → output to
-  `cli/test-runs/v1-baseline/`. Estimated cost: $3-7. **User-initiated**
-  because it spends real Claude API tokens; agent should not
-  unilaterally consume that budget.
-- [ ] **M21** — final wrap-up commit + push + roadmap update
+**M19-M21 completed 2026-05-03 (run 5 → success after 4 fixes):**
+
+- [x] **M19** — Final cross-cutting `superpowers:code-reviewer` pass surfaced
+  5 Critical + 8 Important + 5 Minor. Critical issues fixed before E2E:
+  - C-1: orchestrator was clobbering Phase 8's checkpoint after _DONE
+    (skip post-handler checkpoint write for PACKAGE phase)
+  - C-2: `--resume` flag was parsed but never actually used (now requires
+    --output-dir and parses uuid8 from the dir name)
+  - C-3: Phase 0 resume was clobbering registry start_time (added
+    ensureTaskRegistered idempotent helper)
+  - C-4: PACKAGE in quick mode read non-existent phase07_refine.md
+    (now falls back through canonical pre-PACKAGE artifacts)
+  - C-5: cli-impl.ts had 0% coverage (acknowledged; tests deferred to v2)
+  - I-2 (most urgent): JSON code-fence wrapping broke parsing — added
+    shared `extractJsonOrText` helper that strips ```json fences and
+    locates first balanced JSON block
+- [x] **M20** — E2E test SUCCEEDED (run 5): all 11 phases ran cleanly
+  in ~43 minutes. Output: `cli/test-runs/v1-baseline/`. Final report:
+  52KB / 485 lines with 17 citations and substantive engineering
+  analysis (refined the project's "20% hang rate" claim to a more
+  accurate 1/1 like-for-like rate based on the underlying data).
+  _DONE sentinel written; exit code 0; all 11 phase artifacts present.
+
+  **Bugs found and fixed during E2E (runs 1-4 → run 5):**
+  1. ESM module resolution failure (.js bundle in dir without parent
+     package.json with type: module) — renamed bundle to .mjs.
+  2. SDK couldn't find native CLI binary (esbuild stripped it) — added
+     `pathToClaudeCodeExecutable` resolution via env var → PATH lookup.
+  3. SDK assistant message text was nested at `.message.content`, not
+     `.content` — fixed message extraction.
+  4. **Spawned subprocess hit web_search permission gate and silently
+     aborted with empty output** — added
+     `permissionMode: "bypassPermissions"` to SDK options. This was the
+     biggest gotcha — phases reported "complete" but produced empty
+     artifacts because the subprocess refused to use tools without
+     interactive approval.
+  5. Strict zod schemas on SCOPE/PLAN responses caused
+     ProviderParseError when LLM returned prose around JSON — relaxed to
+     plain Markdown output, downstream phases parse what they need.
+
+- [x] **M21** — final commit + push + ROADMAP update
 
 **Out of scope for v1 (deferred to v2):**
 - Phase 7.5 Step 5 (Temporal Supersession) — provenance flagged

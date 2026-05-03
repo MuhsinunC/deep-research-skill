@@ -16788,6 +16788,82 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   }
 });
 
+// src/util/json_extract.ts
+function extractJsonOrText(text) {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+  }
+  const fenceMatch = trimmed.match(/^```(?:json|javascript|js)?\s*\n?([\s\S]*?)\n?```$/);
+  if (fenceMatch !== null && fenceMatch[1] !== void 0) {
+    try {
+      return JSON.parse(fenceMatch[1].trim());
+    } catch {
+    }
+  }
+  const braceJson = extractFirstBalancedBraceBlock(trimmed);
+  if (braceJson !== null) {
+    try {
+      return JSON.parse(braceJson);
+    } catch {
+    }
+  }
+  const bracketJson = extractFirstBalancedBracketBlock(trimmed);
+  if (bracketJson !== null) {
+    try {
+      return JSON.parse(bracketJson);
+    } catch {
+    }
+  }
+  return text;
+}
+function extractFirstBalancedBraceBlock(text) {
+  return extractFirstBalanced(text, "{", "}");
+}
+function extractFirstBalancedBracketBlock(text) {
+  return extractFirstBalanced(text, "[", "]");
+}
+function extractFirstBalanced(text, open, close) {
+  const start = text.indexOf(open);
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape2 = false;
+  for (let i2 = start; i2 < text.length; i2++) {
+    const ch = text[i2];
+    if (escape2) {
+      escape2 = false;
+      continue;
+    }
+    if (inString) {
+      if (ch === "\\") {
+        escape2 = true;
+        continue;
+      }
+      if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === open) depth++;
+    else if (ch === close) {
+      depth--;
+      if (depth === 0) {
+        return text.slice(start, i2 + 1);
+      }
+    }
+  }
+  return null;
+}
+var init_json_extract = __esm({
+  "src/util/json_extract.ts"() {
+    "use strict";
+  }
+});
+
 // src/providers/claude.ts
 var claude_exports = {};
 __export(claude_exports, {
@@ -16805,7 +16881,16 @@ function buildQueryOpts(systemPrompt, userPrompt, source) {
 function buildQueryArgs(opts) {
   const options = {
     systemPrompt: opts.systemPrompt,
-    model: opts.model
+    model: opts.model,
+    pathToClaudeCodeExecutable: resolveClaudeBinary(),
+    // CRITICAL: bypassPermissions is the SDK equivalent of
+    // --dangerously-skip-permissions. Without it, the spawned Claude Code
+    // subprocess hits a permission gate the moment it tries to use a tool
+    // (web_search, file read, etc.) and silently aborts the phase with
+    // empty output. The launcher skill's SKILL.md and methodology already
+    // assume the worker can use tools without per-call interactive
+    // approval — this flag enforces that contract at the SDK boundary.
+    permissionMode: "bypassPermissions"
   };
   if (opts.effort !== void 0) options["effort"] = opts.effort;
   if (opts.maxTokens !== void 0) options["maxTokens"] = opts.maxTokens;
@@ -16813,6 +16898,25 @@ function buildQueryArgs(opts) {
     prompt: opts.userPrompt,
     options
   };
+}
+function resolveClaudeBinary() {
+  const override = process.env["DEEP_RESEARCH_CLAUDE_BINARY"];
+  if (override !== void 0 && override.length > 0) return override;
+  const candidates = [
+    `${process.env["HOME"] ?? ""}/.local/bin/claude`,
+    `${process.env["HOME"] ?? ""}/.claude/local/claude`,
+    "/usr/local/bin/claude",
+    "/opt/homebrew/bin/claude"
+  ];
+  for (const candidate of candidates) {
+    if (candidate.length === 0) continue;
+    try {
+      const fs16 = __require("node:fs");
+      if (fs16.existsSync(candidate)) return candidate;
+    } catch {
+    }
+  }
+  return "claude";
 }
 function isAssistantMessage(msg) {
   return typeof msg === "object" && msg !== null && "type" in msg && msg.type === "assistant" && "content" in msg && Array.isArray(msg.content);
@@ -16823,13 +16927,6 @@ function isTextBlock(block) {
 function isResultMessage(msg) {
   return typeof msg === "object" && msg !== null && "type" in msg && msg.type === "result";
 }
-function tryParseJsonOrText(text) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
 var ClaudeAgentSdkProvider;
 var init_claude = __esm({
   "src/providers/claude.ts"() {
@@ -16837,6 +16934,7 @@ var init_claude = __esm({
     init_sdk();
     init_atomic();
     init_types();
+    init_json_extract();
     ClaudeAgentSdkProvider = class {
       async callJudgment(req) {
         const startedAt = performance.now();
@@ -16846,7 +16944,7 @@ var init_claude = __esm({
         let retries = 0;
         let parsed;
         if (req.responseSchema !== void 0) {
-          const tried = req.responseSchema.safeParse(tryParseJsonOrText(text));
+          const tried = req.responseSchema.safeParse(extractJsonOrText(text));
           if (!tried.success) {
             retries = 1;
             const retryUserPrompt = `${req.userPrompt}
@@ -16855,7 +16953,7 @@ var init_claude = __esm({
             const retried = await this.runQuery(
               buildQueryOpts(req.systemPrompt, retryUserPrompt, req)
             );
-            const retriedParse = req.responseSchema.safeParse(tryParseJsonOrText(retried.text));
+            const retriedParse = req.responseSchema.safeParse(extractJsonOrText(retried.text));
             if (!retriedParse.success) {
               throw new ProviderParseError(
                 "Claude judgment response did not match responseSchema after retry",
@@ -16944,17 +17042,27 @@ var init_claude = __esm({
         let usage2 = { input: 0, output: 0 };
         for await (const message of stream) {
           if (isAssistantMessage(message)) {
-            for (const block of message.content) {
-              if (isTextBlock(block)) {
-                collectedText += block.text;
+            const beta = message.message;
+            if (beta !== void 0 && Array.isArray(beta.content)) {
+              for (const block of beta.content) {
+                if (isTextBlock(block)) {
+                  collectedText += block.text;
+                }
               }
             }
           }
-          if (isResultMessage(message) && message.usage !== void 0) {
-            usage2 = {
-              input: message.usage.input_tokens ?? 0,
-              output: message.usage.output_tokens ?? 0
-            };
+          if (isResultMessage(message)) {
+            const res = message;
+            if (res.usage !== void 0) {
+              usage2 = {
+                input: res.usage.input_tokens ?? 0,
+                output: res.usage.output_tokens ?? 0
+              };
+            }
+            const finalRes = message;
+            if (collectedText.length === 0 && typeof finalRes.result === "string") {
+              collectedText = finalRes.result;
+            }
           }
         }
         return { text: collectedText, usage: usage2 };
@@ -16978,19 +17086,13 @@ function buildOpenCodeOpts(systemPrompt, userPrompt, source, timeoutMs) {
     ...timeoutMs !== void 0 && { timeoutMs }
   };
 }
-function tryParseJsonOrText2(text) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
 var OpenCodeCliProvider;
 var init_opencode = __esm({
   "src/providers/opencode.ts"() {
     "use strict";
     init_atomic();
     init_types();
+    init_json_extract();
     OpenCodeCliProvider = class {
       binary;
       defaultModel;
@@ -17007,7 +17109,7 @@ var init_opencode = __esm({
         let retries = 0;
         let parsed;
         if (req.responseSchema !== void 0) {
-          const first = req.responseSchema.safeParse(tryParseJsonOrText2(text));
+          const first = req.responseSchema.safeParse(extractJsonOrText(text));
           if (!first.success) {
             retries = 1;
             const retryUserPrompt = `${req.userPrompt}
@@ -17016,7 +17118,7 @@ var init_opencode = __esm({
             const retried = await this.runOpenCode(
               buildOpenCodeOpts(req.systemPrompt, retryUserPrompt, req)
             );
-            const retriedParse = req.responseSchema.safeParse(tryParseJsonOrText2(retried.text));
+            const retriedParse = req.responseSchema.safeParse(extractJsonOrText(retried.text));
             if (!retriedParse.success) {
               throw new ProviderParseError(
                 "OpenCode judgment response did not match responseSchema after retry",
@@ -36834,7 +36936,28 @@ async function markTaskResumed(uuid3) {
   if (idx < 0) return;
   const existing = registry2.tasks[idx];
   if (existing === void 0) return;
-  registry2.tasks[idx] = { ...existing, last_resumed_at: utcNowIso() };
+  registry2.tasks[idx] = {
+    ...existing,
+    status: "in_progress",
+    last_resumed_at: utcNowIso()
+  };
+  await writeAtomicJson(getRegistryPath(), registry2);
+}
+async function ensureTaskRegistered(args) {
+  const registry2 = await readRegistry();
+  const idx = registry2.tasks.findIndex((t) => t.uuid === args.uuid);
+  if (idx >= 0) return;
+  const entry = {
+    uuid: args.uuid,
+    topic: args.topic,
+    status: "in_progress",
+    output_dir: args.outputDir,
+    start_time: utcNowIso(),
+    mode: args.mode,
+    ...args.provider !== void 0 && { provider: args.provider },
+    ...args.cliVersion !== void 0 && { cli_version: args.cliVersion }
+  };
+  registry2.tasks.push(entry);
   await writeAtomicJson(getRegistryPath(), registry2);
 }
 async function markTaskComplete(uuid3) {
@@ -36953,14 +37076,7 @@ var phase00_resume = async (ctx) => {
       `Resuming dispatch \u2014 completed phases on disk: [${completedFromDisk.join(", ")}]`
     );
     await markTaskResumed(ctx.uuid8);
-    await registerTask({
-      uuid: ctx.uuid8,
-      topic: ctx.topic,
-      outputDir: ctx.outputDir,
-      mode: ctx.mode,
-      cliVersion: ctx.cliVersion
-    });
-    await markTaskResumed(ctx.uuid8);
+    await ensureRegistered(ctx);
   } else {
     ctx.log.info("Fresh dispatch \u2014 no prior artifacts");
     await registerTask({
@@ -36986,6 +37102,15 @@ var phase00_resume = async (ctx) => {
     checkpointExtra
   };
 };
+async function ensureRegistered(ctx) {
+  await ensureTaskRegistered({
+    uuid: ctx.uuid8,
+    topic: ctx.topic,
+    outputDir: ctx.outputDir,
+    mode: ctx.mode,
+    cliVersion: ctx.cliVersion
+  });
+}
 function nextIncompletePhase(completedFromDisk) {
   const allPhases = [
     "SCOPE",
@@ -37010,31 +37135,58 @@ init_atomic();
 
 // src/prompts/index.ts
 var SCOPE_SYSTEM = `You are a research scoper. Decompose the user's
-research topic into a clear set of sub-questions, identify stakeholders, define
-in-scope and out-of-scope boundaries, and write 3-7 concrete topic-specific
-acceptance criteria. Output ONLY valid JSON matching the response schema. No
-preamble, no commentary.`;
+research topic into sub-questions, identify stakeholders, define scope
+boundaries, and write 3-7 concrete topic-specific acceptance criteria.
+Output a structured Markdown document \u2014 clear section headings, no preamble,
+no chatty commentary.`;
 var SCOPE_USER = (topic) => `Topic: ${topic}
 
-Decompose this topic into:
-- An array of 3-6 specific sub-questions to investigate
-- An array of 3-7 acceptance criteria (concrete, observable evidence that
-  would make the research "sufficient" for THIS topic \u2014 not generic
-  quality gates)
-- A short scope summary
-- An array of stakeholder perspectives to consider
+Write a Markdown scope document with EXACTLY these section headings (in this
+order, level-2 \`##\`):
 
-Return ONLY a JSON object with the schema { sub_questions: string[],
-acceptance_criteria: string[], scope_summary: string, stakeholders: string[] }.`;
+## Scope summary
+
+(2-3 sentence overview of what this research will and will not cover.)
+
+## Sub-questions
+
+(A numbered list of 3-6 specific questions. Use the format \`1. ...\`,
+\`2. ...\`, etc. on separate lines.)
+
+## Acceptance criteria
+
+(A bullet list of 3-7 concrete, topic-specific evidence requirements that
+would make this research "sufficient." Format: \`- [ ] **AC-1**: ...\`,
+\`- [ ] **AC-2**: ...\`, etc. NOT generic quality gates \u2014 specific to THIS
+topic.)
+
+## Stakeholders
+
+(A bullet list of perspectives to consider. Format: \`- ...\`.)
+
+Output the Markdown directly with no preamble, code fence, or commentary.`;
 var PLAN_SYSTEM = `You are a research planner. Given a scope, produce a
-research plan: search strategies per sub-question, key entities to investigate,
-expected source types. Output ONLY valid JSON matching the response schema.`;
-var PLAN_USER = (scope) => `Scope:
+research plan with search strategies per sub-question, key entities, and
+expected source types. Output a structured Markdown document.`;
+var PLAN_USER = (scope) => `Scope document:
+
 ${scope}
 
-Produce a research plan. Return ONLY a JSON object with schema:
-{ strategies: { sub_question: string, search_queries: string[], key_entities:
-string[] }[], expected_source_types: string[] }.`;
+Write a Markdown plan with these section headings (level-2 \`##\`):
+
+## Strategies
+
+(For each sub-question identified in the scope, write a level-3 heading like
+\`### Strategy for: <sub-question>\` followed by:
+- A bulleted list of 2-4 search queries to try
+- A bulleted list of key entities / authors / organizations to investigate
+)
+
+## Expected source types
+
+(A bullet list of source types likely to be authoritative for this topic.)
+
+Output the Markdown directly with no preamble, code fence, or commentary.`;
 var RETRIEVE_LENS_SYSTEM = (lens) => `You are a deep-research sub-agent specializing in the ${lens} lens.
 Search for sources relevant to the topic, evaluate their credibility, and
 write a structured findings document. Prioritize primary sources over SEO
@@ -37167,70 +37319,31 @@ Use [N] citation markers throughout. The bibliography MUST include every
 cited source.`;
 
 // src/phases/phase01_scope.ts
-var ScopeSchema = external_exports.object({
-  sub_questions: external_exports.array(external_exports.string()).min(1),
-  acceptance_criteria: external_exports.array(external_exports.string()).min(1),
-  scope_summary: external_exports.string(),
-  stakeholders: external_exports.array(external_exports.string())
-});
 var phase01_scope = async (ctx) => {
   ctx.log.info("Framing research question and defining boundaries");
   const response = await ctx.provider.callJudgment({
     systemPrompt: SCOPE_SYSTEM,
     userPrompt: SCOPE_USER(ctx.topic),
     model: "opus",
-    effort: "max",
-    responseSchema: ScopeSchema
+    effort: "max"
   });
-  const parsed = response.parsed;
-  const md = renderScopeMd(ctx.topic, parsed);
-  await writeAtomicText(`${ctx.outputDir}/phase01_scope.md`, md);
+  const header = `# Phase 1: SCOPE
+
+**Topic:** ${ctx.topic}
+
+`;
+  await writeAtomicText(`${ctx.outputDir}/phase01_scope.md`, header + response.text + "\n");
   return {
     phase: "SCOPE",
     checkpointExtra: {
-      sub_question_count: parsed.sub_questions.length,
-      acceptance_criteria_count: parsed.acceptance_criteria.length
+      response_tokens: response.usage.output
     }
   };
 };
-function renderScopeMd(topic, scope) {
-  return [
-    `# Phase 1: SCOPE`,
-    "",
-    `**Topic:** ${topic}`,
-    "",
-    `## Scope summary`,
-    "",
-    scope.scope_summary,
-    "",
-    `## Sub-questions`,
-    "",
-    ...scope.sub_questions.map((q2, i2) => `${i2 + 1}. ${q2}`),
-    "",
-    `## Acceptance criteria`,
-    "",
-    ...scope.acceptance_criteria.map((c2, i2) => `- [ ] **AC-${i2 + 1}**: ${c2}`),
-    "",
-    `## Stakeholders`,
-    "",
-    ...scope.stakeholders.map((s6) => `- ${s6}`),
-    ""
-  ].join("\n");
-}
 
 // src/phases/phase02_plan.ts
 init_atomic();
 import { promises as fs6 } from "node:fs";
-var PlanSchema = external_exports.object({
-  strategies: external_exports.array(
-    external_exports.object({
-      sub_question: external_exports.string(),
-      search_queries: external_exports.array(external_exports.string()),
-      key_entities: external_exports.array(external_exports.string())
-    })
-  ),
-  expected_source_types: external_exports.array(external_exports.string())
-});
 var phase02_plan = async (ctx) => {
   ctx.log.info("Building research plan");
   const scopeText = await fs6.readFile(`${ctx.outputDir}/phase01_scope.md`, "utf8");
@@ -37238,37 +37351,14 @@ var phase02_plan = async (ctx) => {
     systemPrompt: PLAN_SYSTEM,
     userPrompt: PLAN_USER(scopeText),
     model: "opus",
-    effort: "max",
-    responseSchema: PlanSchema
+    effort: "max"
   });
-  const parsed = response.parsed;
-  const md = renderPlanMd(parsed);
-  await writeAtomicText(`${ctx.outputDir}/phase02_plan.md`, md);
+  const header = `# Phase 2: PLAN
+
+`;
+  await writeAtomicText(`${ctx.outputDir}/phase02_plan.md`, header + response.text + "\n");
   return { phase: "PLAN" };
 };
-function renderPlanMd(plan) {
-  const strategies = plan.strategies.map(
-    (s6, i2) => `### Strategy ${i2 + 1}: ${s6.sub_question}
-
-**Search queries:**
-${s6.search_queries.map((q2) => `- \`${q2}\``).join("\n")}
-
-**Key entities:**
-${s6.key_entities.map((e2) => `- ${e2}`).join("\n")}`
-  ).join("\n\n");
-  return [
-    `# Phase 2: PLAN`,
-    "",
-    `## Strategies`,
-    "",
-    strategies,
-    "",
-    `## Expected source types`,
-    "",
-    ...plan.expected_source_types.map((t) => `- ${t}`),
-    ""
-  ].join("\n");
-}
 
 // src/phases/phase03_retrieve.ts
 import { promises as fs7 } from "node:fs";
@@ -37558,7 +37648,7 @@ function slugify2(topic) {
 // src/phases/phase08_package.ts
 var phase08_package = async (ctx) => {
   ctx.log.info("Generating final report (Phase 8 strict ordering)");
-  const refined = await readOrEmpty(`${ctx.outputDir}/phase07_refine.md`);
+  const refined = await readBestSynthesisInput(ctx);
   const verification = await readVerifyArtifacts(ctx.outputDir);
   const response = await ctx.provider.callJudgment({
     systemPrompt: PACKAGE_SYSTEM,
@@ -37605,6 +37695,43 @@ async function readOrEmpty(path) {
   } catch {
     return "";
   }
+}
+async function readBestSynthesisInput(ctx) {
+  const candidates = [
+    "phase07_refine.md",
+    "phase05_synthesize.md",
+    "phase04_5_outline.md",
+    "phase04_triangulate.md"
+  ];
+  for (const candidate of candidates) {
+    const text = await readOrEmpty(`${ctx.outputDir}/${candidate}`);
+    if (text.trim().length > 0) {
+      ctx.log.info(`Using ${candidate} as synthesis input for PACKAGE`);
+      return text;
+    }
+  }
+  try {
+    const entries = await fs14.readdir(ctx.outputDir);
+    const retrieveFiles = entries.filter((n) => n.startsWith("phase03_retrieve_") && n.endsWith(".md")).sort();
+    if (retrieveFiles.length > 0) {
+      ctx.log.info(
+        `Using ${retrieveFiles.length} retrieve lens(es) as synthesis input for PACKAGE`
+      );
+      const sections = [];
+      for (const f10 of retrieveFiles) {
+        const content = await fs14.readFile(`${ctx.outputDir}/${f10}`, "utf8");
+        sections.push(`--- ${f10} ---
+
+${content}`);
+      }
+      return sections.join("\n\n");
+    }
+  } catch {
+  }
+  ctx.log.warn(
+    "No pre-PACKAGE artifacts found in OUTPUT_DIR. PACKAGE will produce a thin report from topic alone."
+  );
+  return "";
 }
 async function readVerifyArtifacts(outputDir) {
   try {
@@ -37786,7 +37913,7 @@ async function runOrchestrator(config2) {
       return errResult;
     }
     lastCompletedPhase = phase;
-    if (phase !== "RESUME_DETECTION") {
+    if (phase !== "RESUME_DETECTION" && phase !== "PACKAGE") {
       const nextPhase = phaseResult.loopBackTo !== void 0 ? phaseResult.loopBackTo : i2 + 1 < phases.length ? phases[i2 + 1] ?? null : null;
       await writeCheckpoint({
         outputDir: config2.outputDir,
@@ -37962,8 +38089,28 @@ async function runCli(argv) {
     parser2.showHelp();
     return 2;
   }
-  const uuid8 = generateUuid8();
-  const outputDir = args.outputDir ?? defaultOutputDir(topic.slice(0, 60), uuid8);
+  if (args.resume === true && args.outputDir === void 0) {
+    process.stderr.write("Error: --resume requires --output-dir <path>\n");
+    return 2;
+  }
+  let uuid8;
+  let outputDir;
+  if (args.resume === true && args.outputDir !== void 0) {
+    const dirName = args.outputDir.replace(/\/+$/, "").split("/").pop() ?? "";
+    const uuidMatch = dirName.match(/_([0-9a-f]{8})$/i);
+    if (uuidMatch === null || uuidMatch[1] === void 0) {
+      process.stderr.write(
+        `Error: --resume requires --output-dir whose path ends in "_<UUID8>" (8 hex chars). Got: ${args.outputDir}
+`
+      );
+      return 2;
+    }
+    uuid8 = uuidMatch[1].toLowerCase();
+    outputDir = args.outputDir;
+  } else {
+    uuid8 = generateUuid8();
+    outputDir = args.outputDir ?? defaultOutputDir(topic.slice(0, 60), uuid8);
+  }
   const log = createLogger({ uuid8 });
   log.info("Starting dispatch", {
     topic: topic.slice(0, 80),

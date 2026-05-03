@@ -84,9 +84,32 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     return 2;
   }
 
-  // Generate UUID8 + output dir.
-  const uuid8 = generateUuid8();
-  const outputDir = args.outputDir ?? defaultOutputDir(topic.slice(0, 60), uuid8);
+  // C-2 fix: --resume requires --output-dir, and the UUID8 must be parsed
+  // from the existing dir's name (so we don't stamp a fresh UUID on the
+  // resumed run, which would orphan its registry entry / state files).
+  if (args.resume === true && args.outputDir === undefined) {
+    process.stderr.write("Error: --resume requires --output-dir <path>\n");
+    return 2;
+  }
+  let uuid8: string;
+  let outputDir: string;
+  if (args.resume === true && args.outputDir !== undefined) {
+    // Existing dir naming convention: <slug>_<YYYYMMDD>_<UUID8>.
+    const dirName = args.outputDir.replace(/\/+$/, "").split("/").pop() ?? "";
+    const uuidMatch = dirName.match(/_([0-9a-f]{8})$/i);
+    if (uuidMatch === null || uuidMatch[1] === undefined) {
+      process.stderr.write(
+        `Error: --resume requires --output-dir whose path ends in "_<UUID8>" ` +
+          `(8 hex chars). Got: ${args.outputDir}\n`,
+      );
+      return 2;
+    }
+    uuid8 = uuidMatch[1].toLowerCase();
+    outputDir = args.outputDir;
+  } else {
+    uuid8 = generateUuid8();
+    outputDir = args.outputDir ?? defaultOutputDir(topic.slice(0, 60), uuid8);
+  }
 
   const log = createLogger({ uuid8 });
 

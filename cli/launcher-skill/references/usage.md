@@ -4,19 +4,19 @@
 
 ```bash
 # Default: deep mode, Claude provider
-node ~/.claude/skills/deep-research-cli/scripts/cli.js \
+node ~/.claude/skills/deep-research-cli/scripts/cli.mjs \
   "How can the deep-research-cli project be improved?"
 
 # Standard mode (cheaper, no VERIFY phase)
-node ~/.claude/skills/deep-research-cli/scripts/cli.js \
+node ~/.claude/skills/deep-research-cli/scripts/cli.mjs \
   "Vector databases for RAG in 2026" --mode standard
 
 # OpenRouter (DeepSeek, GPT-4o, etc. — requires opencode + OPENROUTER_API_KEY)
-node ~/.claude/skills/deep-research-cli/scripts/cli.js \
+node ~/.claude/skills/deep-research-cli/scripts/cli.mjs \
   "AI agent observability tools" --provider opencode
 
 # Resume after a kill
-node ~/.claude/skills/deep-research-cli/scripts/cli.js \
+node ~/.claude/skills/deep-research-cli/scripts/cli.mjs \
   --resume --output-dir ~/Documents/Research/my-topic_20260503_abc12345
 
 # Pause an in-flight dispatch (in another terminal)
@@ -43,7 +43,7 @@ brew install opencode-ai/tap/opencode
 export OPENROUTER_API_KEY=sk-or-...
 
 # Run with explicit model
-node ~/.claude/skills/deep-research-cli/scripts/cli.js \
+node ~/.claude/skills/deep-research-cli/scripts/cli.mjs \
   "Topic" --provider opencode --mode standard
 ```
 

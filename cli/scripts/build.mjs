@@ -20,9 +20,13 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const SRC_ENTRY = resolve(ROOT, "src", "cli.ts");
-const DIST_ENTRY = resolve(ROOT, "dist", "cli.js");
+// Output as .mjs so Node treats it as ESM regardless of any sibling
+// package.json. The deployed skill dir doesn't have a package.json
+// declaring `"type": "module"`, so a plain `.js` extension would be
+// interpreted as CommonJS and the ESM bundle would fail at import.
+const DIST_ENTRY = resolve(ROOT, "dist", "cli.mjs");
 const SKILL_SCRIPTS_DIR = resolve(ROOT, "launcher-skill", "scripts");
-const SKILL_BUNDLE = resolve(SKILL_SCRIPTS_DIR, "cli.js");
+const SKILL_BUNDLE = resolve(SKILL_SCRIPTS_DIR, "cli.mjs");
 
 function run(cmd, args, opts = {}) {
   console.log(`> ${cmd} ${args.join(" ")}`);

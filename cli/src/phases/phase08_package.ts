@@ -24,7 +24,11 @@ export const phase08_package = async (ctx: PhaseContext): Promise<PhaseResult> =
   ctx.log.info("Generating final report (Phase 8 strict ordering)");
 
   // Step 1: write report markdown (AI judgment → atomic write).
-  const refined = await readOrEmpty(`${ctx.outputDir}/phase07_refine.md`);
+  // Use the LATEST available pre-PACKAGE artifact as the synthesis input.
+  // In `deep` and `ultradeep` modes that's phase07_refine.md. In `standard`
+  // mode it's phase05_synthesize.md. In `quick` mode it's the concatenation
+  // of phase03_retrieve_*.md (no synthesis phase ran). Per C-4 in M19 review.
+  const refined = await readBestSynthesisInput(ctx);
   const verification = await readVerifyArtifacts(ctx.outputDir);
   const response = await ctx.provider.callJudgment({
     systemPrompt: PACKAGE_SYSTEM,
@@ -87,6 +91,52 @@ async function readOrEmpty(path: string): Promise<string> {
   } catch {
     return "";
   }
+}
+
+/** Pick the best available pre-PACKAGE artifact to use as synthesis input.
+ *  Falls back through the canonical phase order: refine → synthesize →
+ *  outline → triangulate → concatenated retrieve lenses. This means quick
+ *  mode (which only runs SCOPE + RETRIEVE + PACKAGE) gets the retrieve
+ *  lenses concatenated as the synthesis input — the LLM still has the raw
+ *  findings to build the report from. Per C-4 in M19 review. */
+async function readBestSynthesisInput(ctx: PhaseContext): Promise<string> {
+  const candidates = [
+    "phase07_refine.md",
+    "phase05_synthesize.md",
+    "phase04_5_outline.md",
+    "phase04_triangulate.md",
+  ];
+  for (const candidate of candidates) {
+    const text = await readOrEmpty(`${ctx.outputDir}/${candidate}`);
+    if (text.trim().length > 0) {
+      ctx.log.info(`Using ${candidate} as synthesis input for PACKAGE`);
+      return text;
+    }
+  }
+  // Fall back: concatenate retrieve lens outputs.
+  try {
+    const entries = await fs.readdir(ctx.outputDir);
+    const retrieveFiles = entries
+      .filter((n) => n.startsWith("phase03_retrieve_") && n.endsWith(".md"))
+      .sort();
+    if (retrieveFiles.length > 0) {
+      ctx.log.info(
+        `Using ${retrieveFiles.length} retrieve lens(es) as synthesis input for PACKAGE`,
+      );
+      const sections: string[] = [];
+      for (const f of retrieveFiles) {
+        const content = await fs.readFile(`${ctx.outputDir}/${f}`, "utf8");
+        sections.push(`--- ${f} ---\n\n${content}`);
+      }
+      return sections.join("\n\n");
+    }
+  } catch {
+    // OUTPUT_DIR doesn't exist yet — fall through to empty result below.
+  }
+  ctx.log.warn(
+    "No pre-PACKAGE artifacts found in OUTPUT_DIR. PACKAGE will produce a thin report from topic alone.",
+  );
+  return "";
 }
 
 async function readVerifyArtifacts(outputDir: string): Promise<string> {

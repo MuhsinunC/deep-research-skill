@@ -129,7 +129,35 @@ export async function markTaskResumed(uuid: string): Promise<void> {
   if (idx < 0) return; // Resume of an unregistered task: Phase 0 will register fresh
   const existing = registry.tasks[idx];
   if (existing === undefined) return;
-  registry.tasks[idx] = { ...existing, last_resumed_at: utcNowIso() };
+  // Update last_resumed_at AND flip status back to in_progress (preserves
+  // start_time, complete_time, notes, etc. — per C-3 in M19 review).
+  registry.tasks[idx] = {
+    ...existing,
+    status: "in_progress",
+    last_resumed_at: utcNowIso(),
+  };
+  await writeAtomicJson(getRegistryPath(), registry);
+}
+
+/** Idempotent registration: only writes a fresh entry if the uuid is NOT
+ *  already in the registry. Existing entries (with their original
+ *  `start_time`, `notes`, prior `last_resumed_at`, etc.) are left untouched.
+ *  Used by Phase 0 RESUME DETECTION to avoid clobbering data on resume. */
+export async function ensureTaskRegistered(args: RegisterArgs): Promise<void> {
+  const registry = await readRegistry();
+  const idx = registry.tasks.findIndex((t) => t.uuid === args.uuid);
+  if (idx >= 0) return; // Already registered; do nothing.
+  const entry: TaskEntry = {
+    uuid: args.uuid,
+    topic: args.topic,
+    status: "in_progress",
+    output_dir: args.outputDir,
+    start_time: utcNowIso(),
+    mode: args.mode,
+    ...(args.provider !== undefined && { provider: args.provider }),
+    ...(args.cliVersion !== undefined && { cli_version: args.cliVersion }),
+  };
+  registry.tasks.push(entry);
   await writeAtomicJson(getRegistryPath(), registry);
 }
 

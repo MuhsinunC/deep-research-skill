@@ -9,34 +9,61 @@
 // without touching orchestration / state / fan-out logic.
 
 export const SCOPE_SYSTEM = `You are a research scoper. Decompose the user's
-research topic into a clear set of sub-questions, identify stakeholders, define
-in-scope and out-of-scope boundaries, and write 3-7 concrete topic-specific
-acceptance criteria. Output ONLY valid JSON matching the response schema. No
-preamble, no commentary.`;
+research topic into sub-questions, identify stakeholders, define scope
+boundaries, and write 3-7 concrete topic-specific acceptance criteria.
+Output a structured Markdown document — clear section headings, no preamble,
+no chatty commentary.`;
 
 export const SCOPE_USER = (topic: string): string => `Topic: ${topic}
 
-Decompose this topic into:
-- An array of 3-6 specific sub-questions to investigate
-- An array of 3-7 acceptance criteria (concrete, observable evidence that
-  would make the research "sufficient" for THIS topic — not generic
-  quality gates)
-- A short scope summary
-- An array of stakeholder perspectives to consider
+Write a Markdown scope document with EXACTLY these section headings (in this
+order, level-2 \`##\`):
 
-Return ONLY a JSON object with the schema { sub_questions: string[],
-acceptance_criteria: string[], scope_summary: string, stakeholders: string[] }.`;
+## Scope summary
+
+(2-3 sentence overview of what this research will and will not cover.)
+
+## Sub-questions
+
+(A numbered list of 3-6 specific questions. Use the format \`1. ...\`,
+\`2. ...\`, etc. on separate lines.)
+
+## Acceptance criteria
+
+(A bullet list of 3-7 concrete, topic-specific evidence requirements that
+would make this research "sufficient." Format: \`- [ ] **AC-1**: ...\`,
+\`- [ ] **AC-2**: ...\`, etc. NOT generic quality gates — specific to THIS
+topic.)
+
+## Stakeholders
+
+(A bullet list of perspectives to consider. Format: \`- ...\`.)
+
+Output the Markdown directly with no preamble, code fence, or commentary.`;
 
 export const PLAN_SYSTEM = `You are a research planner. Given a scope, produce a
-research plan: search strategies per sub-question, key entities to investigate,
-expected source types. Output ONLY valid JSON matching the response schema.`;
+research plan with search strategies per sub-question, key entities, and
+expected source types. Output a structured Markdown document.`;
 
-export const PLAN_USER = (scope: string): string => `Scope:
+export const PLAN_USER = (scope: string): string => `Scope document:
+
 ${scope}
 
-Produce a research plan. Return ONLY a JSON object with schema:
-{ strategies: { sub_question: string, search_queries: string[], key_entities:
-string[] }[], expected_source_types: string[] }.`;
+Write a Markdown plan with these section headings (level-2 \`##\`):
+
+## Strategies
+
+(For each sub-question identified in the scope, write a level-3 heading like
+\`### Strategy for: <sub-question>\` followed by:
+- A bulleted list of 2-4 search queries to try
+- A bulleted list of key entities / authors / organizations to investigate
+)
+
+## Expected source types
+
+(A bullet list of source types likely to be authoritative for this topic.)
+
+Output the Markdown directly with no preamble, code fence, or commentary.`;
 
 export const RETRIEVE_LENS_SYSTEM = (lens: string): string =>
   `You are a deep-research sub-agent specializing in the ${lens} lens.
