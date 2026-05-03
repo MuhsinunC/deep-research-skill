@@ -1,0 +1,26 @@
+# Build output
+dist/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Test artifacts
+coverage/
+.vitest/
+
+# Test runs (only baseline E2E is committed; everything else local)
+test-runs/v[0-9]*/
+test-runs/scratch/
+!test-runs/v1-baseline/
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Local config
+.env
+.env.local

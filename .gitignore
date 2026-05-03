@@ -29,9 +29,19 @@ Thumbs.db
 
 # Research output (kept local by default)
 *.json
-# Exception: preserve historical research artifacts under notes/
+# Exceptions: preserve historical research artifacts under notes/
 # (test run checkpoints, sources.json, etc. — committed as read-only history)
 !notes/**/*.json
+# Exceptions: preserve TypeScript project configs under cli/
+# (without these, fresh clones can't `npm install` or build)
+!cli/package.json
+!cli/package-lock.json
+!cli/tsconfig.json
+!cli/tsconfig.test.json
+!cli/.prettierrc.json
+!cli/launcher-skill/**/*.json
+# Exceptions: preserve E2E baseline test outputs (committed for posterity)
+!cli/test-runs/v1-baseline/**/*.json
 
 # Test output
 .pytest_cache/
