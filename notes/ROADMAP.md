@@ -3,7 +3,141 @@
 Tracks all completed and planned work across the project. Checkboxes show
 status: checked = done, unchecked = pending/in-progress.
 
-Last updated: 2026-04-26
+Last updated: 2026-05-03
+
+---
+
+## Stream C1: Deterministic CLI Engine (M0-M17 complete; M18-M21 user-driven — 2026-05-03)
+
+Source: 2026-05-03 user request to invert the architecture from "Claude
+Code worker reads prompt-driven skill, AI orchestrates everything" to
+"deterministic TypeScript CLI orchestrates, AI is called only for
+genuinely open-ended judgment." Motivation: AI orchestration is
+unreliable; runs cost real money; no visibility into whether a phase
+actually executed; need provider abstraction for benchmarking different
+models (Claude SDK vs OpenRouter via OpenCode CLI).
+
+Plan at `cli/PLAN.md` (632 lines, 23 milestones, locked decisions per
+two review iterations).
+
+**Architecture delivered:**
+- New top-level `cli/` directory parallel to `skill/`, `tools/`, `notes/`
+- TypeScript + Node 22 + ESM, strict mode + noUncheckedIndexedAccess +
+  exactOptionalPropertyTypes
+- Builds to single 1.6MB bundle via esbuild → committed to
+  `cli/launcher-skill/scripts/cli.js` per skill-creator convention
+- New launcher skill `deep-research-cli` deployed to
+  `~/.claude/skills/deep-research-cli/` (does NOT touch existing
+  `deep-research` skill — both run side-by-side; new skill triggers
+  narrowly on explicit "cli" / "deterministic" phrasing)
+- Provider abstraction: Claude Agent SDK (default) and OpenCode CLI (for
+  OpenRouter / any OpenAI-compatible endpoint). Same orchestrator runs
+  against either provider via `--provider` flag.
+
+**Locked design decisions (from two review iterations on PLAN.md):**
+
+- **C1**: root `.gitignore` carve-outs for `cli/*.json` (the existing
+  blanket `*.json` rule was silently blocking all TypeScript configs)
+- **C2**: `_DONE` schema locked at `uuid8`/`finished_at`/`phase_completed`/
+  `cli_version`. Foreign `_DONE` files (e.g., from old Python skill)
+  rejected with exit code 3. New CLI uses fresh OUTPUT_DIRs only.
+- **C3**: Phase 7.5 Step 5 (Temporal Supersession) and Step 6 (Verifier-
+  Guided Retry) explicitly deferred to v2; provenance records
+  `skipped: "v2-deferred"`.
+- **C4**: `SubAgentSpec.outputFile` REQUIRED. Provider contract: each
+  sub-agent's text MUST be written atomically to `outputFile` BEFORE
+  `fanOut` resolves. Preserves Granularity 2 resume.
+- **C5**: `src/cli.ts` is a 1-line shim; testable impl in `cli-impl.ts`.
+  Coverage exclusion limited to the shim only.
+- **I1**: Phase 8 HTML/PDF generation calls
+  `~/.claude/skills/deep-research/scripts/md_to_html.py` (deployed
+  canonical path). Hard runtime dependency on existing skill being
+  deployed. Markdown report still produced if Python tooling missing.
+- **I5**: New CLI uses `~/.claude/research-tasks-cli.json` (separate
+  from old skill's registry).
+
+**Milestones M0-M17 (complete):**
+- [x] M0 — project skeleton (package.json, tsconfig, vitest, esbuild)
+- [x] M0.5 — root `.gitignore` carve-outs + `src/util/deps.ts` placeholder
+- [x] M1 — `cli/PLAN.md` written + 2 code-review iterations (5 Critical +
+  9 Important + 6 Minor first round; 1 Important + 3 Minor + 2
+  Suggestions second round; all addressed)
+- [x] M2 — state helpers (atomic write, checkpoint, sub-agent progress,
+  `_DONE` sentinel, pause flag, disk-truth reconciliation, tasks
+  registry). Code-reviewed: 1 Important (registry crash on malformed
+  JSON) + 4 Minor; all fixed inline. 55 tests pass.
+- [x] M3 — provider abstraction (`AgentProvider` interface,
+  `JudgmentRequest`/`JudgmentResponse`, `SubAgentSpec` with required
+  `outputFile`, `ProviderParseError`/`ProviderTimeoutError`/
+  `ProviderConfigError`, factory + MockProvider)
+- [x] M4 — Claude Agent SDK provider (uses `query()` API; per-sub-agent
+  disk-write contract per C4; retry-on-parse-failure per I8)
+- [x] M5 — OpenCode CLI provider (spawns `opencode` binary as child
+  process; same retry policy; surfaces ENOENT loud)
+- [x] M6 — phase orchestrator (deterministic state machine; mode→phase
+  mapping; loop-back budget enforcement; recoverable/fatal error
+  classification)
+- [x] M7 — Phase 0 RESUME DETECTION (pure code: pause flag + `_DONE`
+  schema validation + `*.tmp` cleanup + Disk-Truth Reconciliation +
+  completion-but-missing-sentinel reconciliation + tasks-registry
+  registration)
+- [x] M8 — Phases 1-2 (SCOPE + PLAN with zod-validated structured outputs)
+- [x] M9 — Phase 3 RETRIEVE (parallel fan-out, 4 lenses in deep, 6 in
+  ultradeep; Granularity 2 resume via on-disk lens detection)
+- [x] M10 — Phase 4 + 4.5 (TRIANGULATE + OUTLINE REFINEMENT)
+- [x] M11 — Phase 5 SYNTHESIZE
+- [x] M12 — Phase 6 + 7 (CRITIQUE + REFINE)
+- [x] M13 — Phase 7.5 VERIFY (verifier fan-out + adversarial; Steps 5/6
+  deferred to v2 per C3)
+- [x] M14 — Phase 8 PACKAGE with strict ordering: report → provenance →
+  HTML/PDF → tasks-registry → checkpoint → `_DONE` LAST. `_DONE` has
+  most-recent mtime by construction.
+- [x] M15 — CLI entry + arg parsing (yargs-based; `--mode`/`--provider`/
+  `--output-dir`/`--brief-file`/`--resume`)
+- [x] M16 — launcher skill (`deep-research-cli` SKILL.md with narrow
+  trigger boundary per I9; `references/usage.md` with full flag
+  reference + OpenCode setup + failure-mode recovery)
+- [x] M17 — build pipeline (`scripts/build.mjs`: tsc lint + esbuild
+  bundle + copy to `launcher-skill/scripts/cli.js`) + deploy script
+  (`tools/deploy-cli-to-live.sh`: rsync to `~/.claude/skills/
+  deep-research-cli/`)
+- [x] M18 — full unit test suite passes (84 tests in 714ms; tsc clean)
+
+**Verification of skeleton:**
+- `npm run build` produces 1.6MB bundle
+- `node launcher-skill/scripts/cli.js --help` outputs full flag reference
+- `./tools/deploy-cli-to-live.sh` deploys cleanly to live skill dir
+- `deep-research-cli` skill visible in live Claude Code skills list
+
+**Remaining (M19-M21, user-driven):**
+- [ ] **M19** — final whole-project code review with
+  `superpowers:code-reviewer` on cross-cutting concerns (per-milestone
+  reviews from M3 onward were batched into this final pass to stay
+  within context budget; documented in commit messages
+  `c4c9447`/`ff02fef`/`25aa205`)
+- [ ] **M20** — end-to-end test: `deep` mode on "How can the
+  deep-research-cli project be improved?" → output to
+  `cli/test-runs/v1-baseline/`. Estimated cost: $3-7. **User-initiated**
+  because it spends real Claude API tokens; agent should not
+  unilaterally consume that budget.
+- [ ] **M21** — final wrap-up commit + push + roadmap update
+
+**Out of scope for v1 (deferred to v2):**
+- Phase 7.5 Step 5 (Temporal Supersession) — provenance flagged
+- Phase 7.5 Step 6 (Verifier-Guided Retry) — provenance flagged
+- Granularity 3 (mid-LLM-stream resume)
+- Browser-MCP retrieval (Cloudflare-blocked sources unreachable in v1)
+- Prompt quality refinement — placeholders in `src/prompts/index.ts`
+  produce runnable but un-optimized output. Refinement is M19 work
+  ahead of the M20 E2E test if quality issues are observed.
+- End-to-end validation against real Anthropic API (deferred to M20)
+
+**Stream commits (chronological):**
+1. `1cf493b` — M0-M2: scaffold + plan + state helpers (55 tests pass)
+2. `c4c9447` — M3-M5: provider abstraction (Claude SDK + OpenCode CLI)
+3. `ff02fef` — M6-M7: orchestrator + Phase 0 RESUME DETECTION
+4. `25aa205` — M8-M17: phase handlers + CLI entry + launcher skill +
+   build + deploy
 
 ---
 
