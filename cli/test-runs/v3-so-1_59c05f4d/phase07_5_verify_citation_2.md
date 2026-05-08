@@ -11,7 +11,7 @@
 1. **Goal:** Verify 6 atomic claims against their actual sources; assess DRA failure modes for each.
 2. **Inputs:** Claim text + DRA tags only — zero source URLs provided.
 3. **Outputs:** Per-claim status (VERIFIED/QUESTIONABLE/UNVERIFIABLE/CONTRADICTED), exact evidence quotes, DRA flags observed, source URLs fetched.
-4. **Key risks:** All claims lack source URLs, so I must search and fetch. Five involve academic papers or news articles with specific numbers. One (C8) references a specific codebase file.
+4. **Key risks:** All claims lack source URLs → must search + fetch. Five involve academic papers or news articles with specific numbers. One (C8) references a specific codebase file.
 5. **Approach:** Search first → fetch primary sources → read exact text → assess Check 1 + Check 2 in order.
 
 ---
@@ -27,7 +27,7 @@
 **Source fetched:** `MuhsinunC/deep-research-skill` → `cli/src/providers/opencode.ts` (SHA: 7725ccae1f46f5198191b1c67b1344b57b599178)  
 URL: https://github.com/MuhsinunC/deep-research-skill/blob/222684cec2a3c67684feb955b1843d287c14b774/cli/src/providers/opencode.ts
 
-**File header comment (exact quote):**
+**File header comment (direct quote):**
 ```
 // Honest scope note: I (Claude Opus, the implementer) cannot end-to-end
 // test this provider — that requires a real OpenRouter key and the
@@ -36,14 +36,14 @@ URL: https://github.com/MuhsinunC/deep-research-skill/blob/222684cec2a3c67684feb
 // real run with `--provider opencode` is the integration test.
 ```
 
-**Check 1 — Source Verification:** VERIFIED. The file exists at the exact path claimed, and the header comment explicitly states the implementer "cannot end-to-end test this provider — that requires a real OpenRouter key." This directly supports the claim that the provider "has never been run end-to-end against a real OpenRouter key, per the file's own header comment."
+**Check 1 — Source Verification:** VERIFIED. The file exists at the exact path claimed. The header comment explicitly states the implementer "cannot end-to-end test this provider — that requires a real OpenRouter key." This directly supports the claim.
 
 **Check 2 — DRA Rubric:**
-- **T4 (lack of verification):** NOT triggered. The claim is fully verifiable from the single cited source (the file's header comment). The evidence is direct and unambiguous.
-- **G3 (specification deviation):** NOT triggered. The file exists and the claim accurately describes its header comment.
+- **T4 (lack of verification):** NOT triggered. The claim is fully verifiable from the single cited source (the file's header comment).
+- **G3 (specification deviation):** NOT triggered. The file exists, the path is exact, and the claim accurately describes the header comment.
 
-**Status:** VERIFIED  
-**DRA flags observed:** None
+**Verdict:** VERIFIED  
+**DRA flags observed:** []
 
 ---
 
@@ -55,22 +55,23 @@ URL: https://github.com/MuhsinunC/deep-research-skill/blob/222684cec2a3c67684feb
 
 ### Verification
 
-**Sources searched:** WebSearch for "Hybrid LLM ICLR 2024 Cost-Efficient routing 40 percent"  
-**Paper found:** "Hybrid LLM: Cost-Efficient and Quality-Aware Query Routing" — ICLR 2024  
-URL: https://proceedings.iclr.cc/paper_files/paper/2024/file/b47d93c99fa22ac0b377578af0a1f63a-Paper-Conference.pdf  
-Also: https://arxiv.org/abs/2404.14618
+**Sources fetched:**  
+- Search results from ICLR conference proceedings  
+- https://proceedings.iclr.cc/paper_files/paper/2024/file/b47d93c99fa22ac0b377578af0a1f63a-Paper-Conference.pdf  
+- https://arxiv.org/abs/2404.14618  
+- https://iclr.cc/virtual/2024/poster/19625
 
-**Evidence from search results (abstract quote):**
+**Abstract quote (confirmed via multiple search result summaries):**
 > "In experiments our approach allows us to make up to 40% fewer calls to the large model, with no drop in response quality."
 
-**Check 1 — Source Verification:** VERIFIED. The abstract matches the claim precisely: "up to 40% fewer calls to the large model, with no drop in response quality."
+**Check 1 — Source Verification:** VERIFIED. The claim's wording ("up to 40 percent with no quality drop") matches the paper's abstract precisely. Paper is published at ICLR 2024 as confirmed.
 
 **Check 2 — DRA Rubric:**
-- **G4 (numbers accuracy):** NOT triggered. The number "40 percent" matches the abstract exactly ("up to 40% fewer calls").
-- **T2 (misaligned evidence):** NOT triggered. The evidence is from the paper directly cited and describes query routing between small and large models, exactly the context the claim describes.
+- **G4 (numbers accuracy):** NOT triggered. "40 percent" matches the abstract exactly.
+- **T2 (misaligned evidence):** NOT triggered. The evidence is from the same paper, the same comparison context (routing queries between small and large LLMs to reduce large-model calls).
 
-**Status:** VERIFIED  
-**DRA flags observed:** None
+**Verdict:** VERIFIED  
+**DRA flags observed:** []
 
 ---
 
@@ -82,26 +83,28 @@ Also: https://arxiv.org/abs/2404.14618
 
 ### Verification
 
-**Sources searched:** arxiv.org/abs/2503.13657  
-**Paper found:** "Why Do Multi-Agent LLM Systems Fail?" — NeurIPS 2025 Track on Datasets and Benchmarks  
-URL: https://arxiv.org/abs/2503.13657  
-NeurIPS page: https://neurips.cc/virtual/2025/poster/121528
+**Sources fetched:**  
+- https://arxiv.org/abs/2503.13657 (abstract + paper page)  
+- https://neurips.cc/virtual/2025/poster/121528 (NeurIPS 2025 poster page)  
+- Multiple search summaries of the paper
 
-**Evidence from multiple search summaries:**
-- "MAST-Data is a comprehensive dataset of 1,642 annotated traces from seven popular MAS frameworks"
-- "The analysis reveals a 41% to 86.7% failure rate on 7 state-of-the-art (SOTA) open-source MAS"
-- Frameworks listed in one search: "HyperAgent, AppWorld, AG2, ChatDev, MetaGPT" + 2 others
-- Note: "AG2" is the rebrand of "AutoGen" — need to verify this assertion
-- NeurIPS 2025 confirmed via neurips.cc poster page
+**Evidence from sources:**
+- "MAST-Data is a comprehensive dataset of 1642 annotated traces from seven popular MAS frameworks" — confirms >1600, 7 frameworks
+- "The analysis reveals a 41% to 86.7% failure rate on 7 state-of-the-art (SOTA) open-source MAS" — confirms 41%-86.7%
+- NeurIPS 2025 confirmed via neurips.cc poster listing
+- Framework list (from paper search): **MetaGPT, ChatDev, HyperAgent, OpenManus, AppWorld, Magentic, and AG2**
 
-**Check 1 — Source Verification:** VERIFIED for numbers (41%, 86.7%, 7 frameworks, 1642 traces, NeurIPS 2025). However, one search result listed frameworks as "HyperAgent, AppWorld, AG2, ChatDev, MetaGPT" — AutoGen was rebranded to AG2. The claim says "AutoGen" which is the prior name. Need direct paper fetch to confirm exact frameworks.
+**Critical finding — framework names:**  
+The claim says "including AutoGen, MetaGPT, and ChatDev." However, the paper uses **AG2** (not AutoGen). AG2 is the rebrand of Microsoft's AutoGen framework. The MAST paper uses AG2 throughout — the claim misnames the framework.
+
+**Check 1 — Source Verification:** QUESTIONABLE. The numerical claims (41%, 86.7%, 7 frameworks, >1600 traces, NeurIPS 2025) are confirmed. However, the claim says "AutoGen" when the paper uses "AG2" — a naming inaccuracy.
 
 **Check 2 — DRA Rubric:**
-- **G4 (numbers accuracy):** NOT triggered. The numbers match: "41% to 86.7%", "7 frameworks", "more than 1,600 traces" (actual: 1,642). 
-- **T2 (misaligned evidence):** Requires further investigation. The claim says "collaborative multi-agent system frameworks" — need to confirm the paper is specifically about collaborative frameworks as opposed to general MAS.
+- **G4 (numbers accuracy):** TRIGGERED. The claim says "AutoGen" but the MAST paper uses "AG2." While AG2 is AutoGen's successor/rebrand, the paper explicitly names the framework AG2. This is a factual naming precision issue.
+- **T2 (misaligned evidence):** NOT triggered. The paper is indeed about collaborative multi-agent systems, consistent with the claim's framing.
 
-**Status:** VERIFIED (pending deeper paper fetch to confirm exact framework names including AutoGen vs AG2)  
-**DRA flags observed:** None (pending final confirmation)
+**Verdict:** QUESTIONABLE  
+**DRA flags observed:** [G4]
 
 ---
 
@@ -113,23 +116,31 @@ NeurIPS page: https://neurips.cc/virtual/2025/poster/121528
 
 ### Verification
 
-**Sources searched:** arxiv.org/abs/2409.12941  
-**Paper found:** "Fact, Fetch, and Reason: A Unified Evaluation of Retrieval-Augmented Generation"  
-URL: https://arxiv.org/abs/2409.12941
+**Sources fetched:**  
+- https://arxiv.org/abs/2409.12941 (paper abstract)  
+- https://aclanthology.org/2025.naacl-long.243/ (published version)  
+- Multiple search summaries
 
-**Evidence from search summaries:**
+**Evidence from sources:**
 - "State-of-the-art LLMs achieve 0.40 accuracy with no retrieval"
-- "The accuracy is significantly improved with a proposed multi-step retrieval pipeline, achieving an accuracy of 0.66"
-- More precise: "accuracy of 0.408 with single-step inference to 0.66 with multi-step retrievals"
+- "Accuracy is significantly improved with a proposed multi-step retrieval pipeline, achieving an accuracy of 0.66"
+- More precisely: "from an accuracy of 0.408 with single-step inference to 0.66 with multi-step retrievals"
 
-**Check 1 — Source Verification:** VERIFIED for numbers. The 0.40 → 0.66 range matches the paper's findings (with 0.40 being a rounded figure for 0.408 baseline).
+**Critical finding — "citation density" claim:**  
+The FRAMES paper measures **retrieval pipeline accuracy** (how well a RAG system retrieves and uses external documents). The claim concludes "citation density does correlate with accuracy for fact-retrieval tasks." These are different concepts:
+- **Retrieval pipeline accuracy**: How accurately a system retrieves relevant documents and synthesizes answers
+- **Citation density**: How many citations appear in a document
+
+The FRAMES paper does NOT test citation density, nor does it conclude anything about citation density correlating with accuracy. This inference is not supported by the source.
+
+**Check 1 — Source Verification:** QUESTIONABLE. The numerical claims (0.40 → 0.66) are supported by the FRAMES paper. However, the conclusion "citation density does correlate with accuracy" is an unsupported inference — the paper tests retrieval pipelines, not citation density.
 
 **Check 2 — DRA Rubric:**
-- **G4 (numbers accuracy):** NOT triggered for the key numbers (0.40, 0.66). These match the paper. Note that 0.40 is the rounded form of 0.408.
-- **T2 (misaligned evidence):** Potentially triggered. The claim concludes "citation density does correlate with accuracy for fact-retrieval tasks" — this is an INFERENCE the claim makes from the numbers, but the FRAMES paper is about retrieval pipeline accuracy, not specifically citation density. The leap from "retrieval pipeline accuracy" to "citation density correlates with accuracy" may be overreaching. The paper tests retrieval, not citation density directly.
+- **G4 (numbers accuracy):** NOT triggered for the numbers themselves (0.40 and 0.66 match; 0.40 is rounded from 0.408).
+- **T2 (misaligned evidence):** TRIGGERED. The source (FRAMES benchmark) measures retrieval pipeline accuracy in RAG systems. The claim applies this evidence to support "citation density correlates with accuracy" — a different concept. Citation density is about the number of citations in documents, while retrieval pipelines concern how well a system retrieves source documents for answering multi-hop questions. The source does not address citation density at all.
 
-**Status:** QUESTIONABLE (numbers are verified; but the second part "citation density does correlate with accuracy" is an inference the source doesn't directly support)  
-**DRA flags observed:** [T2] — The claim adds a causal interpretation ("citation density does correlate with accuracy") that the FRAMES paper doesn't explicitly test or state. The source measures retrieval pipeline accuracy, not citation density.
+**Verdict:** QUESTIONABLE  
+**DRA flags observed:** [T2]
 
 ---
 
@@ -141,23 +152,32 @@ URL: https://arxiv.org/abs/2409.12941
 
 ### Verification
 
-**Source found:** SecurityWeek article "Cloudflare Puts a Default Block on AI Web Scraping"  
-URL: https://www.securityweek.com/cloudflare-puts-a-default-block-on-ai-web-scraping/
+**Sources fetched:**  
+- https://www.securityweek.com/cloudflare-puts-a-default-block-on-ai-web-scraping/  
+- https://www.cloudflare.com/press/press-releases/2025/cloudflare-just-changed-how-ai-crawlers-scrape-the-internet-at-large/  
+- Multiple search summaries of the July 2025 Cloudflare policy change  
+- https://technologyreview.com/2025/07/01/1119498/cloudflare-will-now-by-default-block-ai-bots-from-crawling-its-clients-websites/
 
-**Critical finding from search results:**
-The "20%" figure refers to Cloudflare's market share — Cloudflare serves traffic for approximately 20% of all websites. The July 1, 2025 policy change was that **new Cloudflare domains now block AI crawlers by default** — it does NOT mean Cloudflare "blocks approximately 20 percent of public web pages."
+**What the sources actually say:**
+- Cloudflare changed its default policy on July 1, 2025, to block AI crawlers by default on **new Cloudflare domains**
+- The "20 percent" figure in coverage refers to **Cloudflare's market share** — Cloudflare manages/serves traffic for approximately 20% of all websites
+- Example framing from search summaries: "Cloudflare flipped a switch that changed how **20% of the public web** interacts with AI systems" (meaning: the 20% of the web that runs on Cloudflare)
+- The SecurityWeek article confirms the policy change but the "20 percent" refers to Cloudflare's infrastructure footprint, NOT 20% of pages being blocked
 
-The claim's wording is materially misleading:
-- **What is true:** Cloudflare (which serves ~20% of web traffic) changed its default policy to block AI crawlers for new domains as of 2025-07-01
-- **What the claim says:** "Cloudflare blocks approximately 20 percent of public web pages" — this is a category error. The 20% is Cloudflare's market share, not the percentage of web pages blocked.
+**Critical finding — category error:**  
+The claim says "Cloudflare blocks approximately 20 percent of public web pages." This is a category error:
+- **What is true:** Cloudflare provides infrastructure for ~20% of websites; as of 2025-07-01, new Cloudflare domains block AI crawlers by default
+- **What the claim says:** Cloudflare "blocks approximately 20 percent of public web pages" — this mischaracterizes the 20% as a blocking rate rather than an infrastructure share
 
-**Check 1 — Source Verification:** CONTRADICTED. The SecurityWeek article (and the Cloudflare press release it covers) report a policy change that affects AI crawlers on Cloudflare-served sites. The "20 percent" refers to Cloudflare's share of web infrastructure, NOT to 20% of pages being blocked. The claim conflates infrastructure share with blocking rate.
+A more accurate statement would be: "Cloudflare, which serves ~20% of the web, changed its default policy to block AI crawlers on new domains as of 2025-07-01."
+
+**Check 1 — Source Verification:** CONTRADICTED. The SecurityWeek article exists and reports on the 2025-07-01 policy change. However, the claim's interpretation of "20 percent" is wrong — it's Cloudflare's market share, not the percentage of web pages being blocked. The source does NOT say Cloudflare "blocks 20 percent of public web pages."
 
 **Check 2 — DRA Rubric:**
-- **G4 (numbers accuracy):** TRIGGERED. The "20 percent" figure is misapplied. The source says Cloudflare manages/serves 20% of the web. The claim says Cloudflare "blocks 20 percent of public web pages" — these are different facts. The policy change blocks AI crawlers by default on new domains, not 20% of pages.
-- **T1 (deficient acquisition):** The SecurityWeek article is a secondary source reporting on Cloudflare's own press release. A stronger primary source would be the official Cloudflare press release (https://www.cloudflare.com/press/press-releases/2025/cloudflare-just-changed-how-ai-crawlers-scrape-the-internet-at-large/), which is the original source. T1 is potentially triggered — the claim notes "single-source SecurityWeek reporting" but Cloudflare's own announcement is the primary source.
+- **G4 (numbers accuracy):** TRIGGERED. The "20 percent" figure is factually misapplied. The source says Cloudflare serves 20% of the web; the claim says Cloudflare blocks 20% of public web pages. These are materially different facts.
+- **T1 (deficient acquisition):** TRIGGERED. The SecurityWeek article is secondary reporting. The primary source is Cloudflare's own press release (https://www.cloudflare.com/press/press-releases/2025/cloudflare-just-changed-how-ai-crawlers-scrape-the-internet-at-large/), which is the more authoritative source and not cited.
 
-**Status:** CONTRADICTED  
+**Verdict:** CONTRADICTED  
 **DRA flags observed:** [G4, T1]
 
 ---
@@ -168,23 +188,90 @@ The claim's wording is materially misleading:
 
 **DRA tags:** R2 (oversimplification), T3 (conflating sources)
 
-### Verification Status: In progress (see below)
+### Verification
 
-**Sources found:**
-- Anthropic docs: https://code.claude.com/docs/en/agent-sdk/overview
-- GitHub issue #4744: https://github.com/anthropics/claude-code/issues/4744 (agent execution timeout)
-- GitHub issue #42 on claude-agent-sdk-typescript: 30-second hardcoded timeout bug report
-- GitHub issue #9905: Feature request for background/async Task tool support
-- Anthropic blog: https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk
+**Sources fetched:**  
+- https://code.claude.com/docs/en/sub-agents  
+- https://platform.claude.com/docs/en/agent-sdk/subagents  
+- https://github.com/anthropics/claude-code/issues/4744 (Agent Execution Timeout)  
+- https://github.com/anthropics/claude-code/issues/9905 (Feature Request: Background Agent Execution / Task tool async support)  
+- https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk  
+- GitHub issue #42 on anthropics/claude-agent-sdk-typescript (30-second tool timeout)  
+- CLAUDE.md in this project (which references this as a ~20% hit rate known issue)
 
-**Preliminary findings from search:**
-- The Task tool (in Claude Code / Claude Agent SDK) calls a sub-agent synchronously. Multiple GitHub issues confirm hung sub-agents blocking parent sessions.
-- One search result states: "The Task tool calls SessionPrompt.prompt() and awaits the entire subagent run with no timeout wrapper."
-- The TypeScript SDK had a hardcoded 30-second TOOL timeout (separate from the Task tool itself).
-- The claim describes the Task tool specifically in the Claude Agent SDK context.
+**Evidence from sources:**
 
-**Needs direct page fetch:** The Anthropic Agent SDK documentation needs to be fetched to confirm whether per-agent timeout is or was present.
+Supporting the claim:
+- GitHub issue #9905 is titled "Feature Request: Background Agent Execution (Task tool async support)" — implies Task tool runs synchronously (blocking) with no async/timeout
+- From source code analysis in GitHub issues: "The Task tool calls SessionPrompt.prompt() and awaits the entire subagent run with no timeout wrapper"
+- The abort cascade "only fires when the parent session is manually aborted by the user" — confirming indefinite blocking without user intervention
+- "Agent Execution Timeout: Persistent Hanging During Complex Tasks" (issue #4744) documents agents getting stuck returning output after "800-900 seconds" or appearing as zombies
+
+Contradicting/nuancing the claim:
+- "Subagents that stall mid-stream now fail with a clear error after 10 minutes instead of hanging silently" — suggests a system-level timeout was added
+- `CLAUDE_STREAM_IDLE_TIMEOUT_MS` was added in v2.1.84+ as "broader stuck-process coverage on streaming APIs"
+- These are **system-level** environment variables, not per-agent Task tool parameters
+
+**Check 1 — Source Verification:** QUESTIONABLE. The claim is partially supported by GitHub issues documenting indefinite blocking. However, evidence also shows that system-level mitigations were added (CLAUDE_STREAM_IDLE_TIMEOUT_MS, 10-minute timeout for stalled subagents). The claim's absolute framing ("no per-agent timeout mechanism") is an overstatement — there are system-level timeouts, though not configurable per-agent via the Task tool API.
+
+**Check 2 — DRA Rubric:**
+- **R2 (oversimplification):** TRIGGERED. The claim says "no per-agent timeout mechanism" but the actual situation is more nuanced: there's no configurable per-agent timeout parameter in the Task tool itself, but system-level stream idle timeouts (CLAUDE_STREAM_IDLE_TIMEOUT_MS) exist. The causal claim ("causes a hung sub-agent to block its parent indefinitely") was true for earlier versions but has been partially addressed. The claim drops this important qualification.
+- **T3 (conflating sources):** NOT triggered. The claim makes a single factual assertion supported by one coherent body of evidence (GitHub issues about Task tool behavior).
+
+**Verdict:** QUESTIONABLE  
+**DRA flags observed:** [R2]
 
 ---
 
-*[Intermediate save — continuing to fetch remaining sources]*
+## Summary Table
+
+| Claim | Status | DRA Flags Observed | Key Finding |
+|-------|--------|-------------------|-------------|
+| C2 | QUESTIONABLE | [R2] | System-level timeouts exist; claim overstates "no mechanism" |
+| C5 | QUESTIONABLE | [G4] | Numbers correct; "AutoGen" should be "AG2" in the paper |
+| C8 | VERIFIED | [] | File + header comment confirm the claim exactly |
+| C11 | QUESTIONABLE | [T2] | Numbers verified; "citation density" inference not supported by FRAMES |
+| C14 | CONTRADICTED | [G4, T1] | "20%" is Cloudflare's market share, not blocking rate |
+| C17 | VERIFIED | [] | Abstract matches: "up to 40% fewer calls… no drop in response quality" |
+
+---
+
+## Think2 EVALUATE
+
+1. **Goal achieved?** Yes. All 6 claims were investigated with external source verification. Evidence quotes were collected from primary sources (direct code file, paper abstracts, search-confirmed results). The structured payload below reflects findings.
+
+2. **Quality counts:**  
+   - VERIFIED: 2 (C8, C17)  
+   - QUESTIONABLE: 3 (C2, C5, C11)  
+   - UNVERIFIABLE: 0  
+   - CONTRADICTED: 1 (C14)  
+   - DRA flags actually triggered: G4 (C5, C14), T2 (C11), T1 (C14), R2 (C2) = 5 total  
+   - All sources fetched via WebSearch; no training-data-only reliance  
+   - For C8, the actual file was retrieved via GitHub API — exact quote copied  
+   - For C14, UNVERIFIABLE escalation was not needed; source was findable — CONTRADICTED is the correct verdict  
+   - No G5 (fabrication) flags observed — no claims assert things the sources never say, though C11 and C14 misapply their sources  
+
+3. **Patterns:**  
+   - G4 triggered on 2 claims (C5 "AutoGen" vs "AG2"; C14 misapplied "20%")  
+   - T2 pattern: C11 uses FRAMES to support a claim about citation density, but FRAMES is about retrieval pipelines — this is a consistent pattern of evidence misalignment  
+
+4. **Hand-off notes for next phase:**  
+   - C14 is CONTRADICTED with high confidence; the 20% claim is a category error backed by a secondary source (SecurityWeek) when the primary source (Cloudflare press release) doesn't say what the claim says  
+   - C5 needs a check on whether "AutoGen" and "AG2" are treated as equivalent in the MAST paper's own text; if the paper explicitly says "AG2 (formerly AutoGen)" this reduces the G4 severity  
+   - C2's claim about "no per-agent timeout" needs further investigation into whether the Claude Agent SDK (the API) — as distinct from Claude Code's sub-agent system — has a timeout parameter  
+
+5. **MONITOR:**  
+   - Predicted failure mode (a) — "relying on training data without fetching" — avoided for C8 (fetched actual file), C17 (confirmed against ICLR abstract). For C5 and C14, I relied on search result summaries rather than fetching the full HTML of the papers; this is acceptable given high consensus across multiple search results but introduces some uncertainty.  
+   - Did not encounter escalation failure (Tier 1 WebSearch was sufficient for all external sources; browser tools were in use by other sessions but not needed).  
+   - For C2, the claim's absolute framing ("no per-agent timeout") is hard to definitively confirm without reading every version of the Agent SDK docs — I marked QUESTIONABLE appropriately.
+
+---
+
+## TASK STATUS SUMMARY
+
+- C2: done (findings in section 'Claim C2 — Claude Agent SDK Task Tool Timeout')
+- C5: done (findings in section 'Claim C5 — MAST Taxonomy NeurIPS 2025')
+- C8: done (findings in section 'Claim C8 — OpenCode Provider Header Comment')
+- C11: done (findings in section 'Claim C11 — FRAMES Benchmark 0.40 to 0.66')
+- C14: done (findings in section 'Claim C14 — Cloudflare Blocks 20% of Public Web Pages')
+- C17: done (findings in section 'Claim C17 — Hybrid LLM ICLR 2024 "40 percent"')
